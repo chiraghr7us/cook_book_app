@@ -81,16 +81,19 @@
 // storage.js
 // Handles all data persistence for the cookbook app:
 // - localStorage as the always-available local copy
+// - optional GitHub sync: reads/writes a JSON file in a repo you own via the
+//   GitHub REST API, using a personal access token. Works on any device with
+//   a browser (including phones), since it's just fetch() calls.
 // - optional File System Access API sync to a file (e.g. inside a Dropbox /
 //   Google Drive / iCloud Drive synced folder) for near-automatic cross-device
 //   sync on desktop browsers that support it (Chrome, Edge)
-// - manual JSON export / import as a universal fallback that works everywhere,
-//   including phones (export on device A, drop file in cloud folder, import on device B)
+// - manual JSON export / import as a universal fallback that works everywhere
 
 const STORAGE_KEY = 'cookbook_data_v1';
 const DB_NAME = 'cookbook-db';
 const DB_STORE = 'handles';
 const HANDLE_KEY = 'syncFileHandle';
+const GH_CONFIG_KEY = 'cookbook_github_config_v1';
 
 function emptyData() {
   return { recipes: [], cookLogs: [], updatedAt: 0 };
@@ -233,17 +236,163 @@ async function writeSyncFile(handle, data) {
   }
 }
 
+// ---------- GitHub sync ----------
+// Stores { owner, repo, branch, path, token, sha } in localStorage. The sha
+// is GitHub's version marker for the file, used to avoid overwriting
+// someone else's (i.e. another device's) newer write.
+
+function utf8ToBase64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+function base64ToUtf8(str) {
+  return decodeURIComponent(escape(atob(str)));
+}
+
+function getGithubConfig() {
+  try {
+    const raw = localStorage.getItem(GH_CONFIG_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setGithubConfig(cfg) {
+  localStorage.setItem(GH_CONFIG_KEY, JSON.stringify(cfg));
+}
+
+function clearGithubConfig() {
+  localStorage.removeItem(GH_CONFIG_KEY);
+}
+
+// Reads the data file from the repo. Returns null if it doesn't exist yet
+// (a fresh repo), or throws a descriptive error for auth/permission issues.
+async function ghFetchFile(cfg) {
+  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}?ref=${encodeURIComponent(cfg.branch)}&_=${Date.now()}`;
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `token ${cfg.token}`,
+      Accept: 'application/vnd.github+json',
+    },
+    cache: 'no-store',
+  });
+  if (res.status === 404) return null;
+  if (res.status === 401) throw new Error('GitHub rejected the token — check it was copied correctly and hasn\'t expired.');
+  if (res.status === 403) throw new Error('GitHub says access is forbidden — check the token has permission for this repo (Contents: Read and write).');
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`GitHub error ${res.status}: ${body.slice(0, 200) || res.statusText}`);
+  }
+  const json = await res.json();
+  let parsed;
+  try {
+    parsed = JSON.parse(base64ToUtf8(json.content.replace(/\n/g, '')));
+  } catch (e) {
+    throw new Error(`${cfg.path} in the repo isn't valid JSON.`);
+  }
+  return {
+    sha: json.sha,
+    data: {
+      recipes: parsed.recipes || [],
+      cookLogs: parsed.cookLogs || [],
+      updatedAt: parsed.updatedAt || 0,
+    },
+  };
+}
+
+// Writes the data file. Pass the last-known sha to update an existing file,
+// or null/undefined to create it. Throws an error with `.conflict = true`
+// if another device wrote a newer version in between (caller should re-fetch
+// and retry).
+async function ghWriteFile(cfg, data, sha) {
+  const url = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.path)}`;
+  const body = {
+    message: 'Update cookbook data',
+    content: utf8ToBase64(JSON.stringify(data, null, 2)),
+    branch: cfg.branch,
+  };
+  if (sha) body.sha = sha;
+  const res = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `token ${cfg.token}`,
+      Accept: 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 409) {
+    const err = new Error('The file on GitHub changed since we last read it.');
+    err.conflict = true;
+    throw err;
+  }
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`GitHub write failed (${res.status}): ${errBody.slice(0, 200) || res.statusText}`);
+  }
+  const json = await res.json();
+  return json.content.sha;
+}
+
+async function connectGithub({ owner, repo, token, branch, path }) {
+  const cfg = {
+    owner: (owner || '').trim(),
+    repo: (repo || '').trim(),
+    token: (token || '').trim(),
+    branch: (branch || 'main').trim(),
+    path: (path || 'cookbook-data.json').trim(),
+  };
+  if (!cfg.owner || !cfg.repo || !cfg.token) {
+    throw new Error('Repository and token are required.');
+  }
+
+  const remote = await ghFetchFile(cfg); // throws with a clear message on auth/permission problems
+  const local = loadLocal();
+  let winner = local;
+  if (remote && remote.data.updatedAt >= local.updatedAt) winner = remote.data;
+  saveLocal(winner);
+
+  const sha = await ghWriteFile(cfg, winner, remote ? remote.sha : null);
+  setGithubConfig({ ...cfg, sha });
+  return winner;
+}
+
+async function disconnectGithub() {
+  clearGithubConfig();
+}
+
 // ---------- Public API ----------
 
 const Storage = {
   fsAccessSupported,
 
-  // Loads the best available copy: if a sync file is connected, reconcile
-  // it with the local copy by taking whichever was updated more recently.
+  // Loads the best available copy. Priority: GitHub sync (if configured),
+  // then a connected local sync file, then whatever's in localStorage.
   async load() {
     const local = loadLocal();
+
+    const gh = getGithubConfig();
+    if (gh && gh.token) {
+      try {
+        const remote = await ghFetchFile(gh);
+        let winner = local;
+        if (remote && remote.data.updatedAt >= local.updatedAt) winner = remote.data;
+        saveLocal(winner);
+        if (!remote || remote.data.updatedAt < winner.updatedAt) {
+          const sha = await ghWriteFile(gh, winner, remote ? remote.sha : null);
+          setGithubConfig({ ...gh, sha });
+        } else if (remote) {
+          setGithubConfig({ ...gh, sha: remote.sha });
+        }
+        return { data: winner, syncFileName: null, github: { owner: gh.owner, repo: gh.repo } };
+      } catch (e) {
+        console.error('GitHub sync failed on load', e);
+        return { data: local, syncFileName: null, github: { owner: gh.owner, repo: gh.repo, error: e.message } };
+      }
+    }
+
     const handle = await getSavedHandle();
-    if (!handle) return { data: local, syncFileName: null };
+    if (!handle) return { data: local, syncFileName: null, github: null };
 
     const remote = await readSyncFile(handle);
     let winner = local;
@@ -254,13 +403,38 @@ const Storage = {
     if (!remote || remote.updatedAt < winner.updatedAt) {
       await writeSyncFile(handle, winner);
     }
-    return { data: winner, syncFileName: handle.name };
+    return { data: winner, syncFileName: handle.name, github: null };
   },
 
-  // Saves locally and, if connected, to the sync file too.
+  // Saves locally and, if connected, pushes to GitHub or the sync file too.
   async save(data) {
     const stamped = { ...data, updatedAt: Date.now() };
     saveLocal(stamped);
+
+    const gh = getGithubConfig();
+    if (gh && gh.token) {
+      try {
+        const sha = await ghWriteFile(gh, stamped, gh.sha);
+        setGithubConfig({ ...gh, sha });
+      } catch (e) {
+        if (e.conflict) {
+          try {
+            const remote = await ghFetchFile(gh);
+            const merged = remote && remote.data.updatedAt > stamped.updatedAt ? remote.data : stamped;
+            saveLocal(merged);
+            const sha = await ghWriteFile(gh, merged, remote ? remote.sha : null);
+            setGithubConfig({ ...gh, sha });
+            return merged;
+          } catch (e2) {
+            console.error('GitHub retry-after-conflict failed', e2);
+          }
+        } else {
+          console.error('GitHub push failed', e);
+        }
+      }
+      return stamped;
+    }
+
     const handle = await getSavedHandle();
     if (handle) {
       await writeSyncFile(handle, stamped);
@@ -285,6 +459,20 @@ const Storage = {
   async currentSyncFileName() {
     const handle = await getSavedHandle();
     return handle ? handle.name : null;
+  },
+
+  githubStatus() {
+    const gh = getGithubConfig();
+    return gh ? { owner: gh.owner, repo: gh.repo, branch: gh.branch, path: gh.path } : null;
+  },
+
+  async connectGithub(opts) {
+    const data = await connectGithub(opts);
+    return { data, github: this.githubStatus() };
+  },
+
+  async disconnectGithub() {
+    await disconnectGithub();
   },
 
   exportJSON(data) {
@@ -397,14 +585,18 @@ function App() {
   const [showForm, setShowForm] = useState(false);
   const [detailRecipe, setDetailRecipe] = useState(null);
   const [syncFileName, setSyncFileName] = useState(null);
+  const [githubStatus, setGithubStatus] = useState(null); // { owner, repo, branch, path, error? } or null
   const [toast, setToast] = useState(null);
   const importInputRef = useRef(null);
 
   useEffect(() => {
-    Storage.load().then(({ data, syncFileName }) => {
+    Storage.load().then(({ data, syncFileName, github }) => {
       setData(data);
       setSyncFileName(syncFileName);
+      setGithubStatus(github || null);
+      if (github && github.error) showToast('GitHub sync error — check the cloud menu');
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const showToast = useCallback((msg) => {
@@ -476,6 +668,19 @@ function App() {
     await Storage.disconnect();
     setSyncFileName(null);
     showToast('Sync file disconnected');
+  };
+
+  const handleConnectGithub = async (opts) => {
+    const { data, github } = await Storage.connectGithub(opts); // throws on bad token/repo — caller shows the message
+    setData(data);
+    setGithubStatus(github);
+    showToast(`Synced to ${github.owner}/${github.repo}`);
+  };
+
+  const handleDisconnectGithub = async () => {
+    await Storage.disconnectGithub();
+    setGithubStatus(null);
+    showToast('GitHub sync disconnected');
   };
 
   const handleExport = () => {
@@ -569,6 +774,9 @@ function App() {
         fsSupported={Storage.fsAccessSupported}
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
+        githubStatus={githubStatus}
+        onConnectGithub={handleConnectGithub}
+        onDisconnectGithub={handleDisconnectGithub}
         onExport={handleExport}
         onImportClick={() => importInputRef.current && importInputRef.current.click()}
       />
@@ -684,8 +892,10 @@ function App() {
   );
 }
 
-function TopBar({ view, setView, syncFileName, fsSupported, onConnect, onDisconnect, onExport, onImportClick }) {
+function TopBar({ view, setView, syncFileName, fsSupported, onConnect, onDisconnect, githubStatus, onConnectGithub, onDisconnectGithub, onExport, onImportClick }) {
   const [syncOpen, setSyncOpen] = useState(false);
+  const connected = Boolean((githubStatus && !githubStatus.error) || syncFileName);
+
   return (
     <header className="sticky top-0 z-30 bg-cream/90 backdrop-blur border-b border-stone-200">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -714,7 +924,13 @@ function TopBar({ view, setView, syncFileName, fsSupported, onConnect, onDisconn
         <div className="relative">
           <button
             onClick={() => setSyncOpen((s) => !s)}
-            className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-colors ${syncFileName ? 'bg-sage-50 border-sage-200 text-sage-700' : 'bg-white border-stone-200 text-stone-500'}`}
+            className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-colors ${
+              githubStatus && githubStatus.error
+                ? 'bg-amber-50 border-amber-200 text-amber-700'
+                : connected
+                ? 'bg-sage-50 border-sage-200 text-sage-700'
+                : 'bg-white border-stone-200 text-stone-500'
+            }`}
             title="Sync & backup"
           >
             <Icon.Cloud className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
@@ -722,28 +938,47 @@ function TopBar({ view, setView, syncFileName, fsSupported, onConnect, onDisconn
           {syncOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setSyncOpen(false)} />
-              <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl border border-stone-200 shadow-lg z-20 p-3 text-sm">
-                <div className="text-stone-800 font-medium mb-1">Sync & backup</div>
-                {fsSupported ? (
+              <div className="absolute right-0 mt-2 w-80 max-h-[80vh] overflow-y-auto bg-white rounded-xl border border-stone-200 shadow-lg z-20 p-3 text-sm">
+                <div className="text-stone-800 font-medium mb-2">Sync & backup</div>
+
+                {/* GitHub sync — works on any device, including phones */}
+                {githubStatus && !githubStatus.error ? (
+                  <div className="mb-3 pb-3 border-b border-stone-100">
+                    <div className="text-stone-500 text-xs mb-1">Auto-syncing via GitHub to</div>
+                    <div className="font-medium text-stone-700 text-xs mb-2">{githubStatus.owner}/{githubStatus.repo}</div>
+                    <button onClick={() => { onDisconnectGithub(); }} className="text-xs text-red-500 hover:text-red-600">Disconnect GitHub sync</button>
+                  </div>
+                ) : githubStatus && githubStatus.error ? (
+                  <div className="mb-3 pb-3 border-b border-stone-100">
+                    <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-2 mb-2 leading-relaxed">{githubStatus.error}</p>
+                    <button onClick={() => { onDisconnectGithub(); }} className="text-xs text-red-500 hover:text-red-600">Disconnect & try again</button>
+                  </div>
+                ) : (
+                  <div className="mb-3 pb-3 border-b border-stone-100">
+                    <GithubSyncForm onConnect={async (opts) => { await onConnectGithub(opts); setSyncOpen(false); }} />
+                  </div>
+                )}
+
+                {/* Local sync file — desktop Chrome/Edge only */}
+                {fsSupported && (
                   syncFileName ? (
                     <div className="mb-3">
-                      <div className="text-stone-500 text-xs mb-2">Auto-syncing to <span className="font-medium text-stone-700">{syncFileName}</span></div>
+                      <div className="text-stone-500 text-xs mb-2">Also auto-saving locally to <span className="font-medium text-stone-700">{syncFileName}</span></div>
                       <button onClick={() => { onDisconnect(); setSyncOpen(false); }} className="text-xs text-red-500 hover:text-red-600">Disconnect file</button>
                     </div>
                   ) : (
                     <div className="mb-3">
-                      <p className="text-stone-500 text-xs mb-2 leading-relaxed">Pick a file inside your Dropbox, Google Drive, or iCloud Drive folder — this browser will auto-save your data there, so it syncs to your other devices.</p>
+                      <p className="text-stone-500 text-xs mb-2 leading-relaxed">Or: pick a file inside a Dropbox/Drive/iCloud folder for this browser to auto-save to (desktop Chrome/Edge only).</p>
                       <button
                         onClick={() => { onConnect(); setSyncOpen(false); }}
-                        className="text-xs font-medium bg-terracotta-500 hover:bg-terracotta-600 text-white px-3 py-1.5 rounded-lg"
+                        className="text-xs font-medium border border-stone-200 hover:bg-stone-50 text-stone-600 px-3 py-1.5 rounded-lg"
                       >
                         Connect a sync file
                       </button>
                     </div>
                   )
-                ) : (
-                  <p className="text-stone-500 text-xs mb-3 leading-relaxed">Auto-sync isn't supported in this browser. Use export / import below — save the file into a cloud-synced folder (Dropbox, Drive, iCloud) and import it on your other device.</p>
                 )}
+
                 <div className="border-t border-stone-100 pt-2.5 flex gap-2">
                   <button onClick={() => { onExport(); setSyncOpen(false); }} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium border border-stone-200 hover:bg-stone-50 px-3 py-1.5 rounded-lg text-stone-600">
                     <Icon.Download className="w-3.5 h-3.5" /> Export
@@ -758,6 +993,71 @@ function TopBar({ view, setView, syncFileName, fsSupported, onConnect, onDisconn
         </div>
       </div>
     </header>
+  );
+}
+
+function GithubSyncForm({ onConnect }) {
+  const [repo, setRepo] = useState('');
+  const [token, setToken] = useState('');
+  const [branch, setBranch] = useState('main');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    const parts = repo.split('/').map((s) => s.trim()).filter(Boolean);
+    if (parts.length !== 2) {
+      setError('Enter the repo as owner/repo-name, e.g. chirag/cookbook-app');
+      return;
+    }
+    setBusy(true);
+    try {
+      await onConnect({ owner: parts[0], repo: parts[1], token, branch: branch || 'main' });
+    } catch (err) {
+      setError((err && err.message) || 'Could not connect — check the repo and token.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <p className="text-stone-500 text-xs leading-relaxed mb-2">
+        Syncs to a JSON file in a GitHub repo you own — works on any device with a browser, including your phone. Needs a{' '}
+        <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noreferrer" className="underline text-terracotta-600">personal access token</a>{' '}
+        scoped to this repo with "Contents: Read and write" permission.
+      </p>
+      <div className="space-y-1.5">
+        <input
+          value={repo}
+          onChange={(e) => setRepo(e.target.value)}
+          placeholder="owner/repo-name"
+          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+        />
+        <input
+          type="password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder="Personal access token"
+          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+        />
+        <input
+          value={branch}
+          onChange={(e) => setBranch(e.target.value)}
+          placeholder="Branch (default: main)"
+          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+        />
+      </div>
+      {error && <p className="text-xs text-red-500 mt-1.5">{error}</p>}
+      <button
+        type="submit"
+        disabled={busy || !repo || !token}
+        className="mt-2 text-xs font-medium bg-terracotta-500 hover:bg-terracotta-600 disabled:opacity-50 text-white px-3 py-1.5 rounded-lg"
+      >
+        {busy ? 'Connecting…' : 'Connect GitHub sync'}
+      </button>
+    </form>
   );
 }
 
