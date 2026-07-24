@@ -1,0 +1,34 @@
+{
+  "recipes": [
+    {
+      "id": "7230a3e2-71db-4ef3-9780-031beec542c9",
+      "title": "Chicken Crunch Wrap",
+      "tags": [
+        "chicken",
+        "wrap",
+        "protein"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "chicken",
+        "Cheese",
+        "tomatoes",
+        "lettuce",
+        "Yogurt sauce",
+        "Tortilla Wraps"
+      ],
+      "instructions": [
+        "Cut tomatoes and lettuce",
+        "Yogurt sauce- Add garlic, salt and pepper to Greek yogurt",
+        "Season cut chicken piece with salt garlic, onion, paprika, oregano, cumin, Chilli flakes",
+        "Cook chicken for 5-6 mins in a pan until done with some oil.",
+        "Assemble wrap with tortilla and toast on pan till brown."
+      ],
+      "notes": "",
+      "createdAt": 1784873771949
+    }
+  ],
+  "cookLogs": [],
+  "updatedAt": 1784874829487
+}
