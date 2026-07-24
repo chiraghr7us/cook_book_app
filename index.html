@@ -599,9 +599,11 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const showToast = useCallback((msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 2200);
+  const toastIdRef = useRef(0);
+  const showToast = useCallback((msg, undo) => {
+    const id = ++toastIdRef.current;
+    setToast({ id, msg, undo });
+    setTimeout(() => setToast((t) => (t && t.id === id ? null : t)), undo ? 5000 : 2200);
   }, []);
 
   const persist = useCallback(async (next) => {
@@ -635,16 +637,6 @@ function App() {
     setDetailRecipe(null);
   }, [persist]);
 
-  const logCooked = useCallback((recipeId, dateStr) => {
-    setData((prev) => {
-      const entry = { id: uid(), recipeId, date: dateStr || new Date().toISOString() };
-      const next = { ...prev, cookLogs: [...prev.cookLogs, entry] };
-      persist(next);
-      return next;
-    });
-    showToast('Logged! 🍳');
-  }, [persist, showToast]);
-
   const removeCookLog = useCallback((logId) => {
     setData((prev) => {
       const next = { ...prev, cookLogs: prev.cookLogs.filter((l) => l.id !== logId) };
@@ -652,6 +644,16 @@ function App() {
       return next;
     });
   }, [persist]);
+
+  const logCooked = useCallback((recipeId, dateStr) => {
+    const entry = { id: uid(), recipeId, date: dateStr || new Date().toISOString() };
+    setData((prev) => {
+      const next = { ...prev, cookLogs: [...prev.cookLogs, entry] };
+      persist(next);
+      return next;
+    });
+    showToast('Logged! 🍳', () => removeCookLog(entry.id));
+  }, [persist, showToast, removeCookLog]);
 
   const handleConnect = async () => {
     try {
@@ -884,8 +886,16 @@ function App() {
       )}
 
       {toast && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-sm px-4 py-2.5 rounded-full shadow-lg z-50">
-          {toast}
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-sm pl-4 pr-2 py-2 rounded-full shadow-lg z-50 flex items-center gap-2">
+          <span>{toast.msg}</span>
+          {toast.undo && (
+            <button
+              onClick={() => { toast.undo(); setToast(null); }}
+              className="text-xs font-semibold uppercase tracking-wide bg-white/15 hover:bg-white/25 px-2.5 py-1 rounded-full transition-colors"
+            >
+              Undo
+            </button>
+          )}
         </div>
       )}
     </div>
