@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Cookbook</title>
+<meta name="description" content="A minimal personal cookbook — store recipes and track what you've cooked." />
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#d97d54" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Cookbook" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Outfit', 'system-ui', 'sans-serif'] },
+        colors: {
+          cream: '#FAF7F2',
+          terracotta: {
+            50: '#FDF3EE', 100: '#FBE4D8', 200: '#F6C4A9', 300: '#EFA07A',
+            400: '#E58F5F', 500: '#D97D54', 600: '#C2643D', 700: '#9E4F30', 800: '#7A3D25', 900: '#5C2E1B',
+          },
+          sage: {
+            50: '#F3F5EF', 100: '#E4E9DA', 200: '#C9D3B7', 300: '#ADBD93',
+            400: '#93A67B', 500: '#7A8B69', 600: '#647253', 700: '#4E5941', 800: '#3A4230', 900: '#2A3023',
+          },
+        },
+      },
+    },
+  }
+</script>
+
+<!-- Libraries are bundled locally in vendor/ (no internet needed to run the app) -->
+<script src="vendor/react.production.min.js"></script>
+<script src="vendor/react-dom.production.min.js"></script>
+<script src="vendor/babel.min.js"></script>
+<script src="vendor/chart.umd.js"></script>
+
+<style>
+  html, body { background: #FAF7F2; font-family: 'Outfit', system-ui, sans-serif; }
+  ::selection { background: #F6C4A9; }
+</style>
+</head>
+<body class="bg-cream text-stone-800 antialiased">
+<div id="root"></div>
+
+<script>
+  // Fallback: if the app fails to start for any reason, show a visible
+  // message instead of leaving a blank page.
+  function cookbookShowFatalError(msg) {
+    var root = document.getElementById('root');
+    if (!root || root.dataset.rendered) return;
+    root.innerHTML = '<div style="max-width:480px;margin:80px auto;padding:24px;font-family:system-ui,sans-serif;background:#fff;border:1px solid #eee;border-radius:16px;color:#333;box-shadow:0 1px 3px rgba(0,0,0,0.08);">' +
+      '<h2 style="margin:0 0 8px;font-size:16px;">Cookbook couldn\'t start</h2>' +
+      '<p style="font-size:13px;color:#666;line-height:1.5;">' + msg + '</p>' +
+      '<p style="font-size:12px;color:#999;margin-top:12px;">Open the browser console (F12) for the full error, or try serving this folder with a local server instead of double-clicking the file.</p>' +
+      '</div>';
+  }
+  window.addEventListener('error', function (e) {
+    cookbookShowFatalError((e && e.message ? e.message : 'Unknown error') + (e && e.filename ? ' — ' + e.filename.split('/').pop() + ':' + e.lineno : ''));
+  });
+  setTimeout(function () {
+    var root = document.getElementById('root');
+    if (root && !root.hasChildNodes()) {
+      cookbookShowFatalError('The app libraries (React / Babel / Chart.js) never loaded. Make sure the <code>vendor</code> folder is in the same directory as this file.');
+    }
+  }, 4000);
+</script>
+
+<script>
+// storage.js
+// Handles all data persistence for the cookbook app:
+// - localStorage as the always-available local copy
+// - optional File System Access API sync to a file (e.g. inside a Dropbox /
+//   Google Drive / iCloud Drive synced folder) for near-automatic cross-device
+//   sync on desktop browsers that support it (Chrome, Edge)
+// - manual JSON export / import as a universal fallback that works everywhere,
+//   including phones (export on device A, drop file in cloud folder, import on device B)
+
+const STORAGE_KEY = 'cookbook_data_v1';
+const DB_NAME = 'cookbook-db';
+const DB_STORE = 'handles';
+const HANDLE_KEY = 'syncFileHandle';
+
+function emptyData() {
+  return { recipes: [], cookLogs: [], updatedAt: 0 };
+}
+
+// ---------- localStorage ----------
+
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return emptyData();
+    const parsed = JSON.parse(raw);
+    return {
+      recipes: parsed.recipes || [],
+      cookLogs: parsed.cookLogs || [],
+      updatedAt: parsed.updatedAt || 0,
+    };
+  } catch (e) {
+    console.error('Failed to load local data', e);
+    return emptyData();
+  }
+}
+
+function saveLocal(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// ---------- IndexedDB (persists the FileSystemFileHandle across sessions) ----------
+
+function openHandleDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(DB_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbSet(key, value) {
+  const db = await openHandleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function idbGet(key) {
+  const db = await openHandleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readonly');
+    const req = tx.objectStore(DB_STORE).get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbDelete(key) {
+  const db = await openHandleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, 'readwrite');
+    tx.objectStore(DB_STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+const fsAccessSupported = typeof window !== 'undefined' && 'showSaveFilePicker' in window;
+
+async function verifyPermission(handle, readWrite) {
+  const opts = {};
+  if (readWrite) opts.mode = 'readwrite';
+  if ((await handle.queryPermission(opts)) === 'granted') return true;
+  if ((await handle.requestPermission(opts)) === 'granted') return true;
+  return false;
+}
+
+async function getSavedHandle() {
+  if (!fsAccessSupported) return null;
+  try {
+    const handle = await idbGet(HANDLE_KEY);
+    if (!handle) return null;
+    const ok = await verifyPermission(handle, true);
+    return ok ? handle : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Let the user pick or create a JSON file to sync through (point this at a
+// file inside your Dropbox / Google Drive / iCloud Drive folder so it syncs
+// automatically between the computers that folder is synced to).
+async function connectSyncFile() {
+  if (!fsAccessSupported) {
+    throw new Error('Your browser doesn\'t support direct file sync. Use Export / Import instead.');
+  }
+  const handle = await window.showSaveFilePicker({
+    suggestedName: 'cookbook-data.json',
+    types: [{ description: 'Cookbook data', accept: { 'application/json': ['.json'] } }],
+  });
+  await idbSet(HANDLE_KEY, handle);
+  return handle;
+}
+
+async function disconnectSyncFile() {
+  await idbDelete(HANDLE_KEY);
+}
+
+async function readSyncFile(handle) {
+  try {
+    const file = await handle.getFile();
+    const text = await file.text();
+    if (!text.trim()) return null;
+    const parsed = JSON.parse(text);
+    return {
+      recipes: parsed.recipes || [],
+      cookLogs: parsed.cookLogs || [],
+      updatedAt: parsed.updatedAt || 0,
+    };
+  } catch (e) {
+    console.error('Failed to read sync file', e);
+    return null;
+  }
+}
+
+async function writeSyncFile(handle, data) {
+  try {
+    const ok = await verifyPermission(handle, true);
+    if (!ok) return false;
+    const writable = await handle.createWritable();
+    await writable.write(JSON.stringify(data, null, 2));
+    await writable.close();
+    return true;
+  } catch (e) {
+    console.error('Failed to write sync file', e);
+    return false;
+  }
+}
+
+// ---------- Public API ----------
+
+const Storage = {
+  fsAccessSupported,
+
+  // Loads the best available copy: if a sync file is connected, reconcile
+  // it with the local copy by taking whichever was updated more recently.
+  async load() {
+    const local = loadLocal();
+    const handle = await getSavedHandle();
+    if (!handle) return { data: local, syncFileName: null };
+
+    const remote = await readSyncFile(handle);
+    let winner = local;
+    if (remote && remote.updatedAt >= local.updatedAt) {
+      winner = remote;
+    }
+    saveLocal(winner);
+    if (!remote || remote.updatedAt < winner.updatedAt) {
+      await writeSyncFile(handle, winner);
+    }
+    return { data: winner, syncFileName: handle.name };
+  },
+
+  // Saves locally and, if connected, to the sync file too.
+  async save(data) {
+    const stamped = { ...data, updatedAt: Date.now() };
+    saveLocal(stamped);
+    const handle = await getSavedHandle();
+    if (handle) {
+      await writeSyncFile(handle, stamped);
+    }
+    return stamped;
+  },
+
+  async connect() {
+    const handle = await connectSyncFile();
+    // Immediately write current local data so the file is populated.
+    const local = loadLocal();
+    const stamped = { ...local, updatedAt: Date.now() };
+    await writeSyncFile(handle, stamped);
+    saveLocal(stamped);
+    return { data: stamped, syncFileName: handle.name };
+  },
+
+  async disconnect() {
+    await disconnectSyncFile();
+  },
+
+  async currentSyncFileName() {
+    const handle = await getSavedHandle();
+    return handle ? handle.name : null;
+  },
+
+  exportJSON(data) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `cookbook-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  importJSON(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(reader.result);
+          resolve({
+            recipes: parsed.recipes || [],
+            cookLogs: parsed.cookLogs || [],
+            updatedAt: Date.now(),
+          });
+        } catch (e) {
+          reject(e);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  },
+
+  emptyData,
+};
+
+window.Storage = Storage;
+</script>
+
+<!-- App source: kept as inert text/plain (not auto-processed by Babel's
+     DOM scanner) so we can explicitly force the classic JSX runtime below,
+     which is what works with plain global script tags (no bundler). -->
+<script type="text/plain" id="cookbook-app-src">
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+function uid() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+}
+
+function formatDate(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const day = 86400000;
+  if (diff < day) return 'today';
+  const days = Math.floor(diff / day);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days} days ago`;
+  if (days < 31) return `${Math.floor(days / 7)}w ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
+const TAG_COLORS = [
+  'bg-terracotta-100 text-terracotta-800',
+  'bg-sage-100 text-sage-800',
+  'bg-amber-100 text-amber-800',
+];
+
+function tagColor(tag) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = (hash * 31 + tag.charCodeAt(i)) >>> 0;
+  return TAG_COLORS[hash % TAG_COLORS.length];
+}
+
+// ---------------- Icon helpers (inline SVG, no external deps) ----------------
+const Icon = {
+  Plus: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>,
+  Chef: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z" /><line x1="6" y1="17" x2="18" y2="17" /></svg>,
+  Chart: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>,
+  Clock: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+  Check: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><polyline points="20 6 9 17 4 12" /></svg>,
+  X: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>,
+  Edit: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>,
+  Trash: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>,
+  Cloud: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M17.5 19H9a7 7 0 1 1 6.71-9h.79a4.5 4.5 0 1 1 0 9Z" /></svg>,
+  Download: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>,
+  Upload: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>,
+  Search: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>,
+  Dice: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none" /><circle cx="16" cy="8" r="1.2" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="8" cy="16" r="1.2" fill="currentColor" stroke="none" /><circle cx="16" cy="16" r="1.2" fill="currentColor" stroke="none" /></svg>,
+};
+
+// Days after which a recipe is considered fair game again for "Surprise me".
+const RANDOM_PICK_COOLDOWN_DAYS = 14;
+
+// ---------------- App ----------------
+
+function App() {
+  const [data, setData] = useState(null); // { recipes, cookLogs, updatedAt }
+  const [view, setView] = useState('recipes'); // 'recipes' | 'stats'
+  const [search, setSearch] = useState('');
+  const [activeTag, setActiveTag] = useState(null);
+  const [editingRecipe, setEditingRecipe] = useState(null); // recipe object or null
+  const [showForm, setShowForm] = useState(false);
+  const [detailRecipe, setDetailRecipe] = useState(null);
+  const [syncFileName, setSyncFileName] = useState(null);
+  const [toast, setToast] = useState(null);
+  const importInputRef = useRef(null);
+
+  useEffect(() => {
+    Storage.load().then(({ data, syncFileName }) => {
+      setData(data);
+      setSyncFileName(syncFileName);
+    });
+  }, []);
+
+  const showToast = useCallback((msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2200);
+  }, []);
+
+  const persist = useCallback(async (next) => {
+    const saved = await Storage.save(next);
+    setData(saved);
+    return saved;
+  }, []);
+
+  const upsertRecipe = useCallback((recipe) => {
+    setData((prev) => {
+      const exists = prev.recipes.some((r) => r.id === recipe.id);
+      const recipes = exists
+        ? prev.recipes.map((r) => (r.id === recipe.id ? recipe : r))
+        : [...prev.recipes, recipe];
+      const next = { ...prev, recipes };
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  const deleteRecipe = useCallback((id) => {
+    setData((prev) => {
+      const next = {
+        ...prev,
+        recipes: prev.recipes.filter((r) => r.id !== id),
+        cookLogs: prev.cookLogs.filter((l) => l.recipeId !== id),
+      };
+      persist(next);
+      return next;
+    });
+    setDetailRecipe(null);
+  }, [persist]);
+
+  const logCooked = useCallback((recipeId, dateStr) => {
+    setData((prev) => {
+      const entry = { id: uid(), recipeId, date: dateStr || new Date().toISOString() };
+      const next = { ...prev, cookLogs: [...prev.cookLogs, entry] };
+      persist(next);
+      return next;
+    });
+    showToast('Logged! 🍳');
+  }, [persist, showToast]);
+
+  const removeCookLog = useCallback((logId) => {
+    setData((prev) => {
+      const next = { ...prev, cookLogs: prev.cookLogs.filter((l) => l.id !== logId) };
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  const handleConnect = async () => {
+    try {
+      const { data, syncFileName } = await Storage.connect();
+      setData(data);
+      setSyncFileName(syncFileName);
+      showToast('Sync file connected');
+    } catch (e) {
+      if (e.name !== 'AbortError') showToast(e.message || 'Could not connect sync file');
+    }
+  };
+
+  const handleDisconnect = async () => {
+    await Storage.disconnect();
+    setSyncFileName(null);
+    showToast('Sync file disconnected');
+  };
+
+  const handleExport = () => {
+    if (data) Storage.exportJSON(data);
+  };
+
+  const handleImportFile = async (file) => {
+    try {
+      const imported = await Storage.importJSON(file);
+      const saved = await Storage.save(imported);
+      setData(saved);
+      showToast('Data imported');
+    } catch (e) {
+      showToast('Import failed — invalid file');
+    }
+  };
+
+  const allTags = useMemo(() => {
+    if (!data) return [];
+    const s = new Set();
+    data.recipes.forEach((r) => (r.tags || []).forEach((t) => s.add(t)));
+    return [...s].sort();
+  }, [data]);
+
+  const filteredRecipes = useMemo(() => {
+    if (!data) return [];
+    return data.recipes
+      .filter((r) => {
+        if (activeTag && !(r.tags || []).includes(activeTag)) return false;
+        if (!search.trim()) return true;
+        const q = search.toLowerCase();
+        return (
+          r.title.toLowerCase().includes(q) ||
+          (r.ingredients || []).some((i) => i.toLowerCase().includes(q)) ||
+          (r.tags || []).some((t) => t.toLowerCase().includes(q))
+        );
+      })
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }, [data, search, activeTag]);
+
+  const cookCount = useCallback((recipeId) => {
+    if (!data) return 0;
+    return data.cookLogs.filter((l) => l.recipeId === recipeId).length;
+  }, [data]);
+
+  const lastCooked = useCallback((recipeId) => {
+    if (!data) return null;
+    const logs = data.cookLogs.filter((l) => l.recipeId === recipeId);
+    if (!logs.length) return null;
+    return Math.max(...logs.map((l) => new Date(l.date).getTime()));
+  }, [data]);
+
+  // Picks a recipe at random, preferring ones not cooked in the last
+  // RANDOM_PICK_COOLDOWN_DAYS. If everything's been cooked recently, it
+  // falls back to whichever recipe(s) have gone longest without a cook,
+  // so the button always has something to suggest.
+  const pickRandomRecipe = useCallback(() => {
+    if (!data.recipes.length) {
+      showToast('Add a recipe first');
+      return;
+    }
+    const cooldownMs = RANDOM_PICK_COOLDOWN_DAYS * 86400000;
+    const now = Date.now();
+    const withLast = data.recipes.map((r) => ({ r, last: lastCooked(r.id) }));
+
+    let pool = withLast.filter(({ last }) => !last || now - last > cooldownMs);
+    if (pool.length === 0) {
+      const oldest = Math.min(...withLast.map(({ last }) => last ?? 0));
+      pool = withLast.filter(({ last }) => (last ?? 0) === oldest);
+    }
+
+    const pick = pool[Math.floor(Math.random() * pool.length)].r;
+    setDetailRecipe(pick);
+    showToast(`🎲 How about ${pick.title}?`);
+  }, [data, lastCooked, showToast]);
+
+  if (!data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-stone-400">
+        <Icon.Chef className="w-8 h-8 animate-pulse" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen pb-24">
+      <TopBar
+        view={view}
+        setView={setView}
+        syncFileName={syncFileName}
+        fsSupported={Storage.fsAccessSupported}
+        onConnect={handleConnect}
+        onDisconnect={handleDisconnect}
+        onExport={handleExport}
+        onImportClick={() => importInputRef.current && importInputRef.current.click()}
+      />
+      <input
+        ref={importInputRef}
+        type="file"
+        accept="application/json"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files[0]) handleImportFile(e.target.files[0]);
+          e.target.value = '';
+        }}
+      />
+
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 mt-6">
+        {view === 'recipes' && (
+          <>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-5">
+              <div className="relative flex-1 max-w-sm">
+                <Icon.Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search recipes or ingredients..."
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={pickRandomRecipe}
+                  title={`Suggests something you haven't cooked in the last ${RANDOM_PICK_COOLDOWN_DAYS} days`}
+                  className="inline-flex items-center gap-1.5 bg-white hover:bg-sage-50 text-sage-700 border border-sage-200 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
+                >
+                  <Icon.Dice className="w-4 h-4" /> Surprise me
+                </button>
+                <button
+                  onClick={() => { setEditingRecipe(null); setShowForm(true); }}
+                  className="inline-flex items-center gap-1.5 bg-terracotta-500 hover:bg-terracotta-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-sm shadow-terracotta-200 transition-colors"
+                >
+                  <Icon.Plus className="w-4 h-4" /> Add recipe
+                </button>
+              </div>
+            </div>
+
+            {allTags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-6">
+                <button
+                  onClick={() => setActiveTag(null)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${!activeTag ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'}`}
+                >
+                  All
+                </button>
+                {allTags.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setActiveTag(t === activeTag ? null : t)}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${activeTag === t ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'}`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {filteredRecipes.length === 0 ? (
+              <EmptyState hasRecipes={data.recipes.length > 0} onAdd={() => { setEditingRecipe(null); setShowForm(true); }} />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredRecipes.map((r) => (
+                  <RecipeCard
+                    key={r.id}
+                    recipe={r}
+                    cookCount={cookCount(r.id)}
+                    lastCooked={lastCooked(r.id)}
+                    onOpen={() => setDetailRecipe(r)}
+                    onLogCooked={() => logCooked(r.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {view === 'stats' && <StatsView data={data} />}
+      </main>
+
+      {showForm && (
+        <RecipeFormModal
+          recipe={editingRecipe}
+          onClose={() => setShowForm(false)}
+          onSave={(r) => { upsertRecipe(r); setShowForm(false); }}
+        />
+      )}
+
+      {detailRecipe && (
+        <RecipeDetailModal
+          recipe={data.recipes.find((r) => r.id === detailRecipe.id) || detailRecipe}
+          cookLogs={data.cookLogs.filter((l) => l.recipeId === detailRecipe.id).sort((a, b) => new Date(b.date) - new Date(a.date))}
+          onClose={() => setDetailRecipe(null)}
+          onEdit={() => { setEditingRecipe(detailRecipe); setShowForm(true); setDetailRecipe(null); }}
+          onDelete={() => deleteRecipe(detailRecipe.id)}
+          onLogCooked={(dateStr) => logCooked(detailRecipe.id, dateStr)}
+          onRemoveLog={removeCookLog}
+        />
+      )}
+
+      {toast && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 bg-stone-900 text-white text-sm px-4 py-2.5 rounded-full shadow-lg z-50">
+          {toast}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TopBar({ view, setView, syncFileName, fsSupported, onConnect, onDisconnect, onExport, onImportClick }) {
+  const [syncOpen, setSyncOpen] = useState(false);
+  return (
+    <header className="sticky top-0 z-30 bg-cream/90 backdrop-blur border-b border-stone-200">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-terracotta-500 text-white flex items-center justify-center">
+            <Icon.Chef className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
+          </div>
+          <span className="font-semibold text-stone-800 tracking-tight">Cookbook</span>
+        </div>
+
+        <nav className="flex items-center gap-1 bg-stone-100 rounded-xl p-1">
+          <button
+            onClick={() => setView('recipes')}
+            className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${view === 'recipes' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500'}`}
+          >
+            Recipes
+          </button>
+          <button
+            onClick={() => setView('stats')}
+            className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${view === 'stats' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500'}`}
+          >
+            Stats
+          </button>
+        </nav>
+
+        <div className="relative">
+          <button
+            onClick={() => setSyncOpen((s) => !s)}
+            className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-colors ${syncFileName ? 'bg-sage-50 border-sage-200 text-sage-700' : 'bg-white border-stone-200 text-stone-500'}`}
+            title="Sync & backup"
+          >
+            <Icon.Cloud className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
+          </button>
+          {syncOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setSyncOpen(false)} />
+              <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl border border-stone-200 shadow-lg z-20 p-3 text-sm">
+                <div className="text-stone-800 font-medium mb-1">Sync & backup</div>
+                {fsSupported ? (
+                  syncFileName ? (
+                    <div className="mb-3">
+                      <div className="text-stone-500 text-xs mb-2">Auto-syncing to <span className="font-medium text-stone-700">{syncFileName}</span></div>
+                      <button onClick={() => { onDisconnect(); setSyncOpen(false); }} className="text-xs text-red-500 hover:text-red-600">Disconnect file</button>
+                    </div>
+                  ) : (
+                    <div className="mb-3">
+                      <p className="text-stone-500 text-xs mb-2 leading-relaxed">Pick a file inside your Dropbox, Google Drive, or iCloud Drive folder — this browser will auto-save your data there, so it syncs to your other devices.</p>
+                      <button
+                        onClick={() => { onConnect(); setSyncOpen(false); }}
+                        className="text-xs font-medium bg-terracotta-500 hover:bg-terracotta-600 text-white px-3 py-1.5 rounded-lg"
+                      >
+                        Connect a sync file
+                      </button>
+                    </div>
+                  )
+                ) : (
+                  <p className="text-stone-500 text-xs mb-3 leading-relaxed">Auto-sync isn't supported in this browser. Use export / import below — save the file into a cloud-synced folder (Dropbox, Drive, iCloud) and import it on your other device.</p>
+                )}
+                <div className="border-t border-stone-100 pt-2.5 flex gap-2">
+                  <button onClick={() => { onExport(); setSyncOpen(false); }} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium border border-stone-200 hover:bg-stone-50 px-3 py-1.5 rounded-lg text-stone-600">
+                    <Icon.Download className="w-3.5 h-3.5" /> Export
+                  </button>
+                  <button onClick={() => { onImportClick(); setSyncOpen(false); }} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium border border-stone-200 hover:bg-stone-50 px-3 py-1.5 rounded-lg text-stone-600">
+                    <Icon.Upload className="w-3.5 h-3.5" /> Import
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function EmptyState({ hasRecipes, onAdd }) {
+  return (
+    <div className="text-center py-20">
+      <div className="w-14 h-14 mx-auto rounded-2xl bg-terracotta-50 text-terracotta-400 flex items-center justify-center mb-4">
+        <Icon.Chef className="w-6 h-6" />
+      </div>
+      <p className="text-stone-500 text-sm mb-4">
+        {hasRecipes ? 'No recipes match your search.' : 'No recipes yet — add your first one.'}
+      </p>
+      {!hasRecipes && (
+        <button onClick={onAdd} className="inline-flex items-center gap-1.5 bg-terracotta-500 hover:bg-terracotta-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl">
+          <Icon.Plus className="w-4 h-4" /> Add recipe
+        </button>
+      )}
+    </div>
+  );
+}
+
+function RecipeCard({ recipe, cookCount, lastCooked, onOpen, onLogCooked }) {
+  return (
+    <div className="bg-white rounded-2xl border border-stone-200 hover:border-stone-300 hover:shadow-md transition-all overflow-hidden flex flex-col">
+      <button onClick={onOpen} className="text-left flex-1 p-4">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <h3 className="font-semibold text-stone-800 leading-snug">{recipe.title}</h3>
+          {cookCount > 0 && (
+            <span className="shrink-0 inline-flex items-center gap-1 text-xs font-medium bg-sage-50 text-sage-700 px-2 py-0.5 rounded-full">
+              <Icon.Check className="w-3 h-3" /> {cookCount}
+            </span>
+          )}
+        </div>
+        {(recipe.tags || []).length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-2.5">
+            {recipe.tags.slice(0, 3).map((t) => (
+              <span key={t} className={`text-[11px] px-2 py-0.5 rounded-full ${tagColor(t)}`}>{t}</span>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-3 text-xs text-stone-400">
+          {recipe.totalTime && (
+            <span className="inline-flex items-center gap-1"><Icon.Clock className="w-3.5 h-3.5" /> {recipe.totalTime}</span>
+          )}
+          {lastCooked && <span>Last cooked {timeAgo(lastCooked)}</span>}
+        </div>
+      </button>
+      <div className="border-t border-stone-100 px-4 py-2.5">
+        <button
+          onClick={onLogCooked}
+          className="w-full text-xs font-medium text-terracotta-600 hover:text-terracotta-700 inline-flex items-center justify-center gap-1.5 py-1"
+        >
+          <Icon.Check className="w-3.5 h-3.5" /> Log cooked today
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Modal({ onClose, children, wide }) {
+  useEffect(() => {
+    const onEsc = (e) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onEsc);
+    return () => window.removeEventListener('keydown', onEsc);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-40 flex items-start sm:items-center justify-center p-0 sm:p-4">
+      <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={onClose} />
+      <div className={`relative bg-white w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'} sm:rounded-2xl rounded-t-2xl shadow-xl max-h-[92vh] overflow-y-auto mt-auto sm:mt-0`}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function RecipeFormModal({ recipe, onClose, onSave }) {
+  const [title, setTitle] = useState(recipe?.title || '');
+  const [tags, setTags] = useState((recipe?.tags || []).join(', '));
+  const [totalTime, setTotalTime] = useState(recipe?.totalTime || '');
+  const [servings, setServings] = useState(recipe?.servings || '');
+  const [ingredients, setIngredients] = useState((recipe?.ingredients || []).join('\n'));
+  const [instructions, setInstructions] = useState((recipe?.instructions || []).join('\n'));
+  const [notes, setNotes] = useState(recipe?.notes || '');
+  const titleRef = useRef(null);
+
+  useEffect(() => { titleRef.current && titleRef.current.focus(); }, []);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    const r = {
+      id: recipe?.id || uid(),
+      title: title.trim(),
+      tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+      totalTime: totalTime.trim(),
+      servings: servings.trim(),
+      ingredients: ingredients.split('\n').map((s) => s.trim()).filter(Boolean),
+      instructions: instructions.split('\n').map((s) => s.trim()).filter(Boolean),
+      notes: notes.trim(),
+      createdAt: recipe?.createdAt || Date.now(),
+    };
+    onSave(r);
+  };
+
+  return (
+    <Modal onClose={onClose} wide>
+      <form onSubmit={handleSubmit}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100 sticky top-0 bg-white rounded-t-2xl">
+          <h2 className="font-semibold text-stone-800">{recipe ? 'Edit recipe' : 'New recipe'}</h2>
+          <button type="button" onClick={onClose} className="text-stone-400 hover:text-stone-600">
+            <Icon.X className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1.5">Title</label>
+            <input ref={titleRef} required value={title} onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+              placeholder="e.g. Weeknight Chicken Curry" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-stone-500 mb-1.5">Total time</label>
+              <input value={totalTime} onChange={(e) => setTotalTime(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+                placeholder="30 min" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-stone-500 mb-1.5">Servings</label>
+              <input value={servings} onChange={(e) => setServings(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+                placeholder="4" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1.5">Tags <span className="text-stone-400 font-normal">(comma separated)</span></label>
+            <input value={tags} onChange={(e) => setTags(e.target.value)}
+              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+              placeholder="dinner, quick, vegetarian" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1.5">Ingredients <span className="text-stone-400 font-normal">(one per line)</span></label>
+            <textarea value={ingredients} onChange={(e) => setIngredients(e.target.value)} rows={5}
+              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300 font-mono"
+              placeholder={'2 chicken breasts\n1 onion, diced\n1 tbsp curry powder'} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1.5">Instructions <span className="text-stone-400 font-normal">(one step per line)</span></label>
+            <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={6}
+              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+              placeholder={'Dice the onion and sauté until soft\nAdd chicken and cook through\nStir in curry powder and simmer 10 min'} />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1.5">Notes</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+              placeholder="Substitutions, tips, where this recipe came from..." />
+          </div>
+        </div>
+        <div className="px-5 py-4 border-t border-stone-100 flex justify-end gap-2 sticky bottom-0 bg-white rounded-b-2xl">
+          <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-medium text-stone-600 hover:bg-stone-50">Cancel</button>
+          <button type="submit" className="px-4 py-2.5 rounded-xl text-sm font-medium bg-terracotta-500 hover:bg-terracotta-600 text-white">
+            {recipe ? 'Save changes' : 'Add recipe'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function RecipeDetailModal({ recipe, cookLogs, onClose, onEdit, onDelete, onLogCooked, onRemoveLog }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [customDate, setCustomDate] = useState('');
+
+  return (
+    <Modal onClose={onClose} wide>
+      <div className="flex items-start justify-between px-5 py-4 border-b border-stone-100 sticky top-0 bg-white rounded-t-2xl">
+        <div>
+          <h2 className="font-semibold text-stone-800 text-lg">{recipe.title}</h2>
+          <div className="flex items-center gap-3 text-xs text-stone-400 mt-1">
+            {recipe.totalTime && <span className="inline-flex items-center gap-1"><Icon.Clock className="w-3.5 h-3.5" />{recipe.totalTime}</span>}
+            {recipe.servings && <span>Serves {recipe.servings}</span>}
+            <span className="inline-flex items-center gap-1 text-sage-600"><Icon.Check className="w-3.5 h-3.5" />Cooked {cookLogs.length}x</span>
+          </div>
+        </div>
+        <button onClick={onClose} className="text-stone-400 hover:text-stone-600"><Icon.X className="w-5 h-5" /></button>
+      </div>
+
+      <div className="p-5 space-y-5">
+        {(recipe.tags || []).length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {recipe.tags.map((t) => <span key={t} className={`text-[11px] px-2 py-0.5 rounded-full ${tagColor(t)}`}>{t}</span>)}
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => onLogCooked()} className="inline-flex items-center gap-1.5 bg-terracotta-500 hover:bg-terracotta-600 text-white text-sm font-medium px-3.5 py-2 rounded-xl">
+            <Icon.Check className="w-4 h-4" /> Log cooked today
+          </button>
+          <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)}
+            className="text-sm border border-stone-200 rounded-xl px-2.5 py-2" />
+          <button
+            disabled={!customDate}
+            onClick={() => { onLogCooked(new Date(customDate).toISOString()); setCustomDate(''); }}
+            className="text-sm font-medium text-stone-600 border border-stone-200 hover:bg-stone-50 disabled:opacity-40 rounded-xl px-3 py-2"
+          >
+            Log this date
+          </button>
+        </div>
+
+        {recipe.ingredients?.length > 0 && (
+          <div>
+            <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Ingredients</h3>
+            <ul className="space-y-1.5">
+              {recipe.ingredients.map((ing, i) => (
+                <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-terracotta-400">•</span>{ing}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {recipe.instructions?.length > 0 && (
+          <div>
+            <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Instructions</h3>
+            <ol className="space-y-2">
+              {recipe.instructions.map((step, i) => (
+                <li key={i} className="text-sm text-stone-700 flex gap-2.5">
+                  <span className="shrink-0 w-5 h-5 rounded-full bg-stone-100 text-stone-500 text-[11px] font-medium flex items-center justify-center mt-0.5">{i + 1}</span>
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+
+        {recipe.notes && (
+          <div>
+            <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Notes</h3>
+            <p className="text-sm text-stone-600 whitespace-pre-wrap">{recipe.notes}</p>
+          </div>
+        )}
+
+        {cookLogs.length > 0 && (
+          <div>
+            <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Cook history</h3>
+            <ul className="space-y-1">
+              {cookLogs.slice(0, 10).map((l) => (
+                <li key={l.id} className="text-sm text-stone-500 flex items-center justify-between group">
+                  <span>{formatDate(new Date(l.date).getTime())}</span>
+                  <button onClick={() => onRemoveLog(l.id)} className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-500 transition-opacity">
+                    <Icon.X className="w-3.5 h-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <div className="px-5 py-4 border-t border-stone-100 flex justify-between items-center sticky bottom-0 bg-white rounded-b-2xl">
+        {confirmDelete ? (
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-stone-500">Delete this recipe?</span>
+            <button onClick={onDelete} className="text-red-600 font-medium hover:text-red-700">Yes, delete</button>
+            <button onClick={() => setConfirmDelete(false)} className="text-stone-400 hover:text-stone-600">Cancel</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmDelete(true)} className="inline-flex items-center gap-1.5 text-sm text-stone-400 hover:text-red-500">
+            <Icon.Trash className="w-4 h-4" /> Delete
+          </button>
+        )}
+        <button onClick={onEdit} className="inline-flex items-center gap-1.5 text-sm font-medium text-stone-600 border border-stone-200 hover:bg-stone-50 px-3.5 py-2 rounded-xl">
+          <Icon.Edit className="w-4 h-4" /> Edit
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+// ---------------- Stats ----------------
+
+function StatsView({ data }) {
+  const topChartRef = useRef(null);
+  const timelineChartRef = useRef(null);
+  const topChartInstance = useRef(null);
+  const timelineChartInstance = useRef(null);
+
+  const recipeById = useMemo(() => {
+    const m = {};
+    data.recipes.forEach((r) => (m[r.id] = r));
+    return m;
+  }, [data.recipes]);
+
+  const counts = useMemo(() => {
+    const m = {};
+    data.cookLogs.forEach((l) => { m[l.recipeId] = (m[l.recipeId] || 0) + 1; });
+    return m;
+  }, [data.cookLogs]);
+
+  const ranked = useMemo(() => {
+    return data.recipes
+      .map((r) => ({
+        recipe: r,
+        count: counts[r.id] || 0,
+        last: data.cookLogs.filter((l) => l.recipeId === r.id).reduce((max, l) => Math.max(max, new Date(l.date).getTime()), 0),
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [data.recipes, data.cookLogs, counts]);
+
+  const top10 = ranked.filter((r) => r.count > 0).slice(0, 10);
+
+  const monthly = useMemo(() => {
+    const months = [];
+    const now = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString(undefined, { month: 'short' }), count: 0 });
+    }
+    const idx = {};
+    months.forEach((m, i) => (idx[m.key] = i));
+    data.cookLogs.forEach((l) => {
+      const d = new Date(l.date);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      if (key in idx) months[idx[key]].count += 1;
+    });
+    return months;
+  }, [data.cookLogs]);
+
+  const totalMeals = data.cookLogs.length;
+  const thisMonthCount = monthly[monthly.length - 1]?.count || 0;
+
+  useEffect(() => {
+    if (topChartInstance.current) topChartInstance.current.destroy();
+    if (!topChartRef.current || top10.length === 0) return;
+    topChartInstance.current = new Chart(topChartRef.current, {
+      type: 'bar',
+      data: {
+        labels: top10.map((r) => r.recipe.title),
+        datasets: [{
+          data: top10.map((r) => r.count),
+          backgroundColor: '#d97d54',
+          borderRadius: 6,
+          maxBarThickness: 22,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `Cooked ${ctx.raw} time${ctx.raw === 1 ? '' : 's'}` } } },
+        scales: {
+          x: { beginAtZero: true, ticks: { precision: 0, color: '#a8a29e' }, grid: { color: '#f0ede8' } },
+          y: { ticks: { color: '#57534e', font: { size: 12 } }, grid: { display: false } },
+        },
+      },
+    });
+    return () => topChartInstance.current && topChartInstance.current.destroy();
+  }, [top10.map((r) => r.recipe.id + r.count).join(',')]);
+
+  useEffect(() => {
+    if (timelineChartInstance.current) timelineChartInstance.current.destroy();
+    if (!timelineChartRef.current) return;
+    timelineChartInstance.current = new Chart(timelineChartRef.current, {
+      type: 'bar',
+      data: {
+        labels: monthly.map((m) => m.label),
+        datasets: [{
+          data: monthly.map((m) => m.count),
+          backgroundColor: '#7a8b69',
+          borderRadius: 6,
+          maxBarThickness: 28,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.raw} meal${ctx.raw === 1 ? '' : 's'} cooked` } } },
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0, color: '#a8a29e' }, grid: { color: '#f0ede8' } },
+          x: { ticks: { color: '#a8a29e' }, grid: { display: false } },
+        },
+      },
+    });
+    return () => timelineChartInstance.current && timelineChartInstance.current.destroy();
+  }, [monthly.map((m) => m.count).join(',')]);
+
+  return (
+    <div className="pb-10">
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <StatCard label="Recipes" value={data.recipes.length} />
+        <StatCard label="Meals logged" value={totalMeals} />
+        <StatCard label="This month" value={thisMonthCount} />
+      </div>
+
+      <div className="bg-white rounded-2xl border border-stone-200 p-5 mb-5">
+        <h3 className="text-sm font-semibold text-stone-700 mb-4">Meals cooked per month</h3>
+        <div style={{ height: 220 }}>
+          <canvas ref={timelineChartRef} />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-stone-200 p-5 mb-5">
+        <h3 className="text-sm font-semibold text-stone-700 mb-4">Most cooked recipes</h3>
+        {top10.length === 0 ? (
+          <p className="text-sm text-stone-400 py-6 text-center">Log a few meals to see your favorites here.</p>
+        ) : (
+          <div style={{ height: Math.max(160, top10.length * 34) }}>
+            <canvas ref={topChartRef} />
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-2xl border border-stone-200 p-5">
+        <h3 className="text-sm font-semibold text-stone-700 mb-3">All recipes</h3>
+        <div className="divide-y divide-stone-100">
+          {ranked.map(({ recipe, count, last }) => (
+            <div key={recipe.id} className="flex items-center justify-between py-2.5 text-sm">
+              <span className="text-stone-700">{recipe.title}</span>
+              <span className="text-stone-400 flex items-center gap-3">
+                {last > 0 && <span className="text-xs">last {timeAgo(last)}</span>}
+                <span className="font-medium text-stone-600">{count}x</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ label, value }) {
+  return (
+    <div className="bg-white rounded-2xl border border-stone-200 p-4 text-center">
+      <div className="text-2xl font-semibold text-stone-800">{value}</div>
+      <div className="text-xs text-stone-400 mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+<script>
+  (function () {
+    try {
+      var src = document.getElementById('cookbook-app-src').textContent;
+      var out = Babel.transform(src, { presets: [['react', { runtime: 'classic' }]] }).code;
+      var s = document.createElement('script');
+      s.textContent = out;
+      document.body.appendChild(s);
+      document.getElementById('root').dataset.rendered = '1';
+    } catch (e) {
+      console.error(e);
+      cookbookShowFatalError((e && e.message) || 'Failed to start the app.');
+    }
+  })();
+</script>
+
+<script>
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
