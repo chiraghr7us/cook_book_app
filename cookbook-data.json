@@ -132,6 +132,12 @@
       "createdAt": 1785312223915
     }
   ],
-  "cookLogs": [],
-  "updatedAt": 1785312223915
+  "cookLogs": [
+    {
+      "id": "16a910f3-c637-4801-bf9f-ce94b87fc3aa",
+      "recipeId": "115b7fee-5d13-4f7d-a444-5075e0fe05b5",
+      "date": "2026-07-29T08:03:46.847Z"
+    }
+  ],
+  "updatedAt": 1785312226848
 }
