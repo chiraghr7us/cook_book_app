@@ -27,8 +27,43 @@
       ],
       "notes": "",
       "createdAt": 1784873771949
+    },
+    {
+      "id": "5b6b964d-b2aa-4c67-9f87-dab25f3a9c9a",
+      "title": "Burrito Bowl",
+      "tags": [
+        "Chicken",
+        "Bowl",
+        "Rice",
+        "veggies"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "Rice",
+        "Cilantro",
+        "Lime",
+        "Veggies",
+        "Chicken",
+        "Cooked corn",
+        "Tomato",
+        "Onion",
+        "Cheese"
+      ],
+      "instructions": [
+        "Cook Fresh rice",
+        "Cut and prep veggies- onion, bell pepper",
+        "Cut Chicken and season with oil, garlic power, onion powder, Paprika, cumin powder, oregano, add pepper and salt.",
+        "Salsa - corn, tomato, onion, lime, salt/pepper.",
+        "Cook the chicken",
+        "Saute veggies with little salt",
+        "Make cilantro lime rice with butter, salt and pepper.",
+        "Plate the dish with Cheese garnish."
+      ],
+      "notes": "",
+      "createdAt": 1785311272753
     }
   ],
   "cookLogs": [],
-  "updatedAt": 1784917888551
+  "updatedAt": 1785311272753
 }
