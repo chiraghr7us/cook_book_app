@@ -90,8 +90,48 @@
       ],
       "notes": "",
       "createdAt": 1785311650784
+    },
+    {
+      "id": "115b7fee-5d13-4f7d-a444-5075e0fe05b5",
+      "title": "Afghani Egg Curry",
+      "tags": [
+        "Egg",
+        "Curry"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "Egg",
+        "Curd",
+        "Onion",
+        "Ginger",
+        "Garlic",
+        "Cilantro",
+        "Green Chilli",
+        "Butter",
+        "Cumin seeds",
+        "Cinnamon sticks",
+        "Bay leaf",
+        "Clove",
+        "chilli powder",
+        "Coriander powder",
+        "Cumin powder",
+        "Garam masala"
+      ],
+      "instructions": [
+        "Boil eggs.",
+        "Satue Onion, Ginger, garlic, Green chilli with butter; Blend with water & Cilantro to make a paste.",
+        "Temper oil with Jeera, Cinnamon, Bay leaf, Clove and add the paste and cook it.",
+        "Add chilli powder, Coriander powder, little Cumin powder, Garam masala and cook.",
+        "Adjust consistency using water.",
+        "Add curd and boiled eggs.",
+        "Cook for 10 mins.",
+        "Garnish with Cilantro leaves and serve with Chapati or Rice."
+      ],
+      "notes": "Green Chilli -> Red chilli",
+      "createdAt": 1785312223915
     }
   ],
   "cookLogs": [],
-  "updatedAt": 1785311702377
+  "updatedAt": 1785312223915
 }
