@@ -62,8 +62,36 @@
       ],
       "notes": "",
       "createdAt": 1785311272753
+    },
+    {
+      "id": "ba94b8af-d25f-4998-a034-4c6dafe9542c",
+      "title": "Sambaar",
+      "tags": [
+        "Sambaar"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "Toor Daal",
+        "Tomato",
+        "Onion",
+        "Garlic",
+        "Chilli Powder",
+        "Sambaar powder",
+        "Veggies",
+        "Tamarind"
+      ],
+      "instructions": [
+        "Saute mustard seeds, onion, tomato, Veggies and garlic for 5 mins.",
+        "Add toor daal and pressure cook for 3 Whistles with Salt",
+        "After cooker cools; Add water, sambaar powder, chilli powder and boil",
+        "Add Tamarind paste/extract",
+        "Adjust salt and spice and serve with Hot Rice"
+      ],
+      "notes": "",
+      "createdAt": 1785311650784
     }
   ],
   "cookLogs": [],
-  "updatedAt": 1785311272753
+  "updatedAt": 1785311650784
 }
