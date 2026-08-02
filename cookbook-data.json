@@ -247,6 +247,35 @@
       ],
       "notes": "Chicken for Chicken Donne biriyani",
       "createdAt": 1785696864544
+    },
+    {
+      "id": "1451ce82-7e0e-49e3-b190-d87e7c8697be",
+      "title": "Avocado Toast",
+      "tags": [
+        "Bread",
+        "Avocado"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "Avocado",
+        "Bread",
+        "Tomato",
+        "Onion",
+        "Oregano",
+        "Chilli flakes",
+        "cilantro",
+        "egg"
+      ],
+      "instructions": [
+        "Cut tomato, onion, lime salt, cilantro and mix with avocado",
+        "Season Guac",
+        "Toast bread",
+        "Add Guac to Bread and serve",
+        "Add fried egg on top"
+      ],
+      "notes": "",
+      "createdAt": 1785698657835
     }
   ],
   "cookLogs": [
@@ -261,5 +290,5 @@
       "date": "2026-08-02T18:17:20.262Z"
     }
   ],
-  "updatedAt": 1785697795464
+  "updatedAt": 1785698657835
 }
