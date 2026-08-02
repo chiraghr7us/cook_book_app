@@ -163,6 +163,48 @@
       ],
       "notes": "Can add chicken to pasta.",
       "createdAt": 1785694636224
+    },
+    {
+      "id": "131203dc-5405-4795-8f26-a5473b6e9ba0",
+      "title": "Panner Butter masala",
+      "tags": [
+        "Curry",
+        "Panner",
+        "Butter"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "Butter",
+        "Onion",
+        "panner",
+        "cashew",
+        "kasthrui methi",
+        "Tomato",
+        "Bay leaf",
+        "Clove",
+        "Cardamom",
+        "chilli powder",
+        "Garam masala",
+        "corainder powder",
+        "Jeera",
+        "Cinnamon",
+        "cilantro"
+      ],
+      "instructions": [
+        "Add butter and Bay leaf, clove, cardamom, Cinnamon, cashew",
+        "Cook onion and tomato in butter and spices",
+        "Let it cool; remove hard spices and blend mixture",
+        "Add oil+ butter to the pan and put back hard spices, and add jeera",
+        "Add the blended mixture to pan and cook more",
+        "Add Chilli powder, garam masala, coriander powder",
+        "Add water and adjust consistency",
+        "add Panner, milk and fresh cream.",
+        "Cook and adjust consistency",
+        "Finish off with kasthuri mehti and cilantro"
+      ],
+      "notes": "Use Chicken instead of panner for butter chicken.",
+      "createdAt": 1785696797072
     }
   ],
   "cookLogs": [
@@ -177,5 +219,5 @@
       "date": "2026-08-02T18:17:20.262Z"
     }
   ],
-  "updatedAt": 1785694640262
+  "updatedAt": 1785696797073
 }
