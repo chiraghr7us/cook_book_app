@@ -276,6 +276,30 @@
       ],
       "notes": "",
       "createdAt": 1785698657835
+    },
+    {
+      "id": "22cde762-37c3-4d78-a7e4-437af61e7987",
+      "title": "Chicken taco's",
+      "tags": [
+        "Tacos",
+        "Chicken"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "Chicken",
+        "Taco",
+        "Sauces",
+        "Coleslaw/lettuce",
+        "seasonings"
+      ],
+      "instructions": [
+        "Airfry chicken",
+        "Toast tortilla",
+        "Add chicken, sauces, coleslaw to tortilla and serve"
+      ],
+      "notes": "Can make a dry chicken fry for filling.",
+      "createdAt": 1785698859631
     }
   ],
   "cookLogs": [
@@ -290,5 +314,5 @@
       "date": "2026-08-02T18:17:20.262Z"
     }
   ],
-  "updatedAt": 1785698657835
+  "updatedAt": 1785698859631
 }
