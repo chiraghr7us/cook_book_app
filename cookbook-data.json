@@ -210,7 +210,7 @@
     },
     {
       "id": "5942830f-fc45-491f-ad92-5864c65bd055",
-      "title": "Mushroom Biriyani",
+      "title": "Mushroom Donne Biriyani",
       "tags": [
         "Mushroom",
         "Biriyani",
@@ -223,14 +223,29 @@
         "Mushroom",
         "Cilantro",
         "Mint",
+        "lime/Lemon",
+        "kasthuri Methi",
         "Green Chilli",
         "Cardamom",
         "Bay Leaf",
         "cloves",
+        "Marathi Moggu",
+        "Ginger Garlic paste (GGP)",
         "pepper corns"
       ],
-      "instructions": [],
-      "notes": "",
+      "instructions": [
+        "Soak Rice",
+        "Add Oil Bay leaf, Marathi Moggu, cardamom and fry for 2min",
+        "Add sliced onion, Mushroom, turmeric powder salt and cook",
+        "Make a  paste of Cilantro, Mint, Green Chilli, Little Onion, Pepper corns, GGP, Clove and water",
+        "Add pate to partially cooked mushroom and cook",
+        "Blend 2 tomatoes and add to the pot.",
+        "Add kasthuri Methi",
+        "Cook the mixture then add 1:2 Water and wait till it boils",
+        "Adjust salt add lemon juice and rice",
+        "Cover with Foil and boil Rice until Done"
+      ],
+      "notes": "Chicken for Chicken Donne biriyani",
       "createdAt": 1785696864544
     }
   ],
@@ -246,5 +261,5 @@
       "date": "2026-08-02T18:17:20.262Z"
     }
   ],
-  "updatedAt": 1785697211150
+  "updatedAt": 1785697795464
 }
