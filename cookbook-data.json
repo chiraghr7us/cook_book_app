@@ -189,13 +189,15 @@
         "corainder powder",
         "Jeera",
         "Cinnamon",
-        "cilantro"
+        "cilantro",
+        "Green chilli",
+        "Red Chilli"
       ],
       "instructions": [
         "Add butter and Bay leaf, clove, cardamom, Cinnamon, cashew",
-        "Cook onion and tomato in butter and spices",
+        "Cook onion, Red Chilli and tomato in butter and spices",
         "Let it cool; remove hard spices and blend mixture",
-        "Add oil+ butter to the pan and put back hard spices, and add jeera",
+        "Add oil+ butter to the pan and put back hard spices, Green chilli, and add jeera",
         "Add the blended mixture to pan and cook more",
         "Add Chilli powder, garam masala, coriander powder",
         "Add water and adjust consistency",
@@ -236,5 +238,5 @@
       "date": "2026-08-02T18:17:20.262Z"
     }
   ],
-  "updatedAt": 1785696864544
+  "updatedAt": 1785696911232
 }
