@@ -205,6 +205,23 @@
       ],
       "notes": "Use Chicken instead of panner for butter chicken.",
       "createdAt": 1785696797072
+    },
+    {
+      "id": "5942830f-fc45-491f-ad92-5864c65bd055",
+      "title": "Mushroom Biriyani",
+      "tags": [],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "Rice",
+        "Mushroom",
+        "Cilantro",
+        "Mint",
+        "Green Chilli"
+      ],
+      "instructions": [],
+      "notes": "",
+      "createdAt": 1785696864544
     }
   ],
   "cookLogs": [
@@ -219,5 +236,5 @@
       "date": "2026-08-02T18:17:20.262Z"
     }
   ],
-  "updatedAt": 1785696797073
+  "updatedAt": 1785696864544
 }
