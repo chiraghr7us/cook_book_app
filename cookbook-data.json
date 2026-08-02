@@ -211,7 +211,11 @@
     {
       "id": "5942830f-fc45-491f-ad92-5864c65bd055",
       "title": "Mushroom Biriyani",
-      "tags": [],
+      "tags": [
+        "Mushroom",
+        "Biriyani",
+        "Rice"
+      ],
       "totalTime": "",
       "servings": "",
       "ingredients": [
@@ -219,7 +223,11 @@
         "Mushroom",
         "Cilantro",
         "Mint",
-        "Green Chilli"
+        "Green Chilli",
+        "Cardamom",
+        "Bay Leaf",
+        "cloves",
+        "pepper corns"
       ],
       "instructions": [],
       "notes": "",
@@ -238,5 +246,5 @@
       "date": "2026-08-02T18:17:20.262Z"
     }
   ],
-  "updatedAt": 1785696941930
+  "updatedAt": 1785697096885
 }
