@@ -130,6 +130,39 @@
       ],
       "notes": "Green Chilli -> Red chilli",
       "createdAt": 1785312223915
+    },
+    {
+      "id": "76433eb1-4f8b-40ae-ac86-5e98bf96a3cd",
+      "title": "Pasta Arabiata",
+      "tags": [
+        "Pasta",
+        "Tomato"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "Pasta",
+        "Tomato",
+        "Garlic",
+        "Onion",
+        "Oregano",
+        "Chilli flakes",
+        "Cheese",
+        "Butter"
+      ],
+      "instructions": [
+        "Boil Pasta with salt",
+        "Add butter to the pan",
+        "Cook the onions in butter untill done 50 %",
+        "then add garlic and cook for few mins",
+        "Then add blended tomatoes to the pan and cook",
+        "Add seasonings",
+        "Add the boiled pasta and cook for few mins",
+        "Add cheese and adjust consistency",
+        "Finish off with cilantro"
+      ],
+      "notes": "Can add chicken to pasta.",
+      "createdAt": 1785694636224
     }
   ],
   "cookLogs": [
@@ -139,5 +172,5 @@
       "date": "2026-07-29T08:03:46.847Z"
     }
   ],
-  "updatedAt": 1785312226848
+  "updatedAt": 1785694636224
 }
