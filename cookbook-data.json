@@ -300,6 +300,45 @@
       ],
       "notes": "Can make a dry chicken fry for filling.",
       "createdAt": 1785698859631
+    },
+    {
+      "id": "e48499db-bae5-4732-96db-f76dd2c005fa",
+      "title": "Daal tadka",
+      "tags": [
+        "Curry",
+        "Daal"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "Toor daal",
+        "Channa Daal",
+        "Musoor daal",
+        "Green Chilli",
+        "ginger",
+        "Ghee Jeera",
+        "Red Chilli",
+        "Garlic",
+        "Onion",
+        "Tomato",
+        "Chilli Powder",
+        "Coriander powder",
+        "Garam Masala",
+        "Butter",
+        "Jeera"
+      ],
+      "instructions": [
+        "1/2 cup daal + 2 spoon channa daal + 2 spoon mussoor daal+ washaand soak for 30 mins",
+        "Put daal + 1 green chilli + salt + Turmeric powder + little ginger + (0.5 : 2.5) cups water & cook 3-4 whistles then stir",
+        "In pan put ghee+ Jeera+ Red chilli + green chilli chopped + onion and cook on high flame",
+        "Add one chopped tomato and salt and cook.",
+        "Add 0.5 spoon (kashmiri red chilli powder + coriander powder)+ little garam masala + water.",
+        "Add Daal and mix.",
+        "Add Kasthuri methi + Amchoor powder Little Butter",
+        "Finish with Cilantro"
+      ],
+      "notes": "",
+      "createdAt": 1785721093736
     }
   ],
   "cookLogs": [
@@ -314,5 +353,5 @@
       "date": "2026-08-02T18:17:20.262Z"
     }
   ],
-  "updatedAt": 1785698894019
+  "updatedAt": 1785721093736
 }
