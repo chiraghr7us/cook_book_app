@@ -42,7 +42,8 @@ Your data always lives locally first (in the browser's storage), so the app work
 
 ## Using it
 
-- **Recipes tab:** add a recipe (title, tags, time, servings, ingredients, steps, notes). Click a card to view/edit/delete it, or use "Log cooked today" for a one-tap log. "Surprise me" picks a recipe you haven't cooked in the last 14 days (or, if everything qualifies, whichever's gone longest).
+- **Recipes tab:** add a recipe (title, tags, time, servings, ingredients, steps, notes). Click a card to view/edit/delete it, or use "Log cooked today" for a one-tap log (has a few seconds to Undo right after). "Surprise me" picks a recipe you haven't cooked in the last 14 days (or, if everything qualifies, whichever's gone longest). A recipe's "Cook history" lets you edit or delete any past log entry, not just the most recent one.
+- **Voice input:** the mic icon next to Title, Tags, Ingredients, Instructions, and Notes lets you dictate instead of typing — for Ingredients/Instructions, pause between each item and it'll drop each one on its own line. Uses your browser's built-in speech recognition, so it needs mic permission and (for most browsers) an internet connection; it won't appear in browsers that don't support it (e.g. Firefox).
 - **Stats tab:** total recipes and meals logged, a monthly cooking-frequency chart, and your most-cooked recipes ranked.
 
 ## Files

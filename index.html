@@ -576,6 +576,7 @@ const Icon = {
   Download: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>,
   Upload: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>,
   Search: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>,
+  Mic: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>,
   Dice: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none" /><circle cx="16" cy="8" r="1.2" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="8" cy="16" r="1.2" fill="currentColor" stroke="none" /><circle cx="16" cy="16" r="1.2" fill="currentColor" stroke="none" /></svg>,
 };
 
@@ -1161,6 +1162,75 @@ function Modal({ onClose, children, wide }) {
   );
 }
 
+// Voice-to-text button using the browser's built-in speech recognition
+// (no external service, no API key). `continuous` keeps listening across
+// pauses — each pause fires a "final" result, which we use to add one line
+// at a time for list-style fields like ingredients/instructions.
+function VoiceButton({ onText, continuous, label }) {
+  const [listening, setListening] = useState(false);
+  const [error, setError] = useState('');
+  const recRef = useRef(null);
+  const SpeechRecognitionCtor = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  useEffect(() => () => { if (recRef.current) { try { recRef.current.stop(); } catch (e) {} } }, []);
+
+  if (!SpeechRecognitionCtor) return null;
+
+  const start = () => {
+    setError('');
+    const rec = new SpeechRecognitionCtor();
+    rec.lang = navigator.language || 'en-US';
+    rec.continuous = !!continuous;
+    rec.interimResults = false;
+    rec.onresult = (e) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        if (res.isFinal) {
+          const text = res[0].transcript.trim();
+          if (text) onText(text);
+        }
+      }
+    };
+    rec.onerror = (e) => {
+      setListening(false);
+      const messages = {
+        'not-allowed': 'Mic access blocked — allow it in your browser and try again.',
+        'service-not-allowed': 'Mic access blocked — allow it in your browser and try again.',
+        network: 'Voice recognition isn\'t working — needs an internet connection. (Brave blocks this by default for privacy; try Chrome/Edge, or type instead.)',
+      };
+      if (messages[e.error]) setError(messages[e.error]);
+    };
+    rec.onend = () => setListening(false);
+    recRef.current = rec;
+    try {
+      rec.start();
+      setListening(true);
+    } catch (err) {
+      setError('Could not start voice input.');
+    }
+  };
+
+  const stop = () => {
+    if (recRef.current) recRef.current.stop();
+    setListening(false);
+  };
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => (listening ? stop() : start())}
+        title={label || (listening ? 'Stop listening' : 'Voice input')}
+        className={`inline-flex items-center justify-center w-5 h-5 rounded-md transition-colors ${listening ? 'text-white bg-terracotta-500' : 'text-stone-400 hover:text-terracotta-600 hover:bg-terracotta-50'}`}
+      >
+        <Icon.Mic className="w-3 h-3" />
+      </button>
+      {listening && <span className="text-[10px] text-terracotta-500">Listening…</span>}
+      {error && <span className="text-[10px] text-red-500">{error}</span>}
+    </span>
+  );
+}
+
 function RecipeFormModal({ recipe, onClose, onSave }) {
   const [title, setTitle] = useState(recipe?.title || '');
   const [tags, setTags] = useState((recipe?.tags || []).join(', '));
@@ -1201,7 +1271,10 @@ function RecipeFormModal({ recipe, onClose, onSave }) {
         </div>
         <div className="p-5 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-stone-500 mb-1.5">Title</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-stone-500">Title</label>
+              <VoiceButton onText={(t) => setTitle((prev) => (prev ? prev + ' ' : '') + t)} />
+            </div>
             <input ref={titleRef} required value={title} onChange={(e) => setTitle(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
               placeholder="e.g. Weeknight Chicken Curry" />
@@ -1221,25 +1294,37 @@ function RecipeFormModal({ recipe, onClose, onSave }) {
             </div>
           </div>
           <div>
-            <label className="block text-xs font-medium text-stone-500 mb-1.5">Tags <span className="text-stone-400 font-normal">(comma separated)</span></label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-stone-500">Tags <span className="text-stone-400 font-normal">(comma separated)</span></label>
+              <VoiceButton onText={(t) => setTags((prev) => (prev ? prev + ', ' : '') + t)} />
+            </div>
             <input value={tags} onChange={(e) => setTags(e.target.value)}
               className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
               placeholder="dinner, quick, vegetarian" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-stone-500 mb-1.5">Ingredients <span className="text-stone-400 font-normal">(one per line)</span></label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-stone-500">Ingredients <span className="text-stone-400 font-normal">(one per line)</span></label>
+              <VoiceButton continuous label="Voice input — pause between each ingredient" onText={(t) => setIngredients((prev) => (prev ? prev + '\n' : '') + t)} />
+            </div>
             <textarea value={ingredients} onChange={(e) => setIngredients(e.target.value)} rows={5}
               className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300 font-mono"
               placeholder={'2 chicken breasts\n1 onion, diced\n1 tbsp curry powder'} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-stone-500 mb-1.5">Instructions <span className="text-stone-400 font-normal">(one step per line)</span></label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-stone-500">Instructions <span className="text-stone-400 font-normal">(one step per line)</span></label>
+              <VoiceButton continuous label="Voice input — pause between each step" onText={(t) => setInstructions((prev) => (prev ? prev + '\n' : '') + t)} />
+            </div>
             <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={6}
               className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
               placeholder={'Dice the onion and sauté until soft\nAdd chicken and cook through\nStir in curry powder and simmer 10 min'} />
           </div>
           <div>
-            <label className="block text-xs font-medium text-stone-500 mb-1.5">Notes</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-stone-500">Notes</label>
+              <VoiceButton continuous onText={(t) => setNotes((prev) => (prev ? prev + ' ' : '') + t)} />
+            </div>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
               className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
               placeholder="Substitutions, tips, where this recipe came from..." />
