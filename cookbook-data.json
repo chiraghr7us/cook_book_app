@@ -281,7 +281,7 @@
       "id": "22cde762-37c3-4d78-a7e4-437af61e7987",
       "title": "Chicken tacos",
       "tags": [
-        "Tacos",
+        "Taco",
         "Chicken"
       ],
       "totalTime": "",
@@ -363,5 +363,5 @@
       "date": "2026-08-03T18:23:21.016Z"
     }
   ],
-  "updatedAt": 1785781401016
+  "updatedAt": 1785786369127
 }
