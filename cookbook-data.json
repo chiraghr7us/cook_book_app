@@ -405,7 +405,14 @@
         "tomato",
         "coriander leaf"
       ],
-      "instructions": [],
+      "instructions": [
+        "fried chicken with turmeric and salt",
+        "blend coconut garlic ginger coriander powder pepper corns,",
+        "Green City cashew,",
+        "clove cinnamon onion",
+        "add tomato coriander leaf and blend the mix",
+        "had blend to chicken and cook"
+      ],
       "notes": "",
       "createdAt": 1786060361839
     }
@@ -442,5 +449,5 @@
       "date": "2026-08-05T00:00:00.000Z"
     }
   ],
-  "updatedAt": 1786060361839
+  "updatedAt": 1786060691199
 }
