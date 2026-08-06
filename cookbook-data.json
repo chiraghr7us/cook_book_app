@@ -406,12 +406,11 @@
         "coriander leaf"
       ],
       "instructions": [
-        "fried chicken with turmeric and salt",
-        "blend coconut garlic ginger coriander powder pepper corns,",
-        "Green City cashew,",
-        "clove cinnamon onion",
-        "add tomato coriander leaf and blend the mix",
-        "had blend to chicken and cook"
+        "Fry chicken with turmeric and salt.",
+        "Blend coconut, garlic, ginger, 2 spoons coriander powder, 1 spoon pepper corns,",
+        "Green chilli, cashew, clove, cinnamon, onion.",
+        "Add tomato, coriander leaf and blend the mix.",
+        "Add the blend to chicken and cook."
       ],
       "notes": "",
       "createdAt": 1786060361839
@@ -449,5 +448,5 @@
       "date": "2026-08-05T00:00:00.000Z"
     }
   ],
-  "updatedAt": 1786060691199
+  "updatedAt": 1786060761621
 }
