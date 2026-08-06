@@ -378,6 +378,36 @@
       ],
       "notes": "Mushroom for mushroom donne biriyani",
       "createdAt": 1786058126992
+    },
+    {
+      "id": "55cd9f6a-f4a8-44fb-a656-758211ef6bf4",
+      "title": "Chicken Sambaar",
+      "tags": [
+        "Chicken",
+        "Curry",
+        "Sambaar"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "Chicken",
+        "Turmeric",
+        "Coconut",
+        "garlic",
+        "ginger",
+        "coriander powder",
+        "pepper corn",
+        "green chilli",
+        "cashew",
+        "Cinnamon",
+        "clove",
+        "onion",
+        "tomato",
+        "coriander leaf"
+      ],
+      "instructions": [],
+      "notes": "",
+      "createdAt": 1786060361839
     }
   ],
   "cookLogs": [
@@ -412,5 +442,5 @@
       "date": "2026-08-05T00:00:00.000Z"
     }
   ],
-  "updatedAt": 1786058126992
+  "updatedAt": 1786060361839
 }
