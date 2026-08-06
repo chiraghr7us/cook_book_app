@@ -20,7 +20,17 @@
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
+  // Apply the saved theme before Tailwind/React paint anything, so there's
+  // no flash of the wrong theme on load.
+  (function () {
+    try {
+      var saved = localStorage.getItem('cookbook_theme');
+      var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (dark) document.documentElement.classList.add('dark');
+    } catch (e) {}
+  })();
   tailwind.config = {
+    darkMode: 'class',
     theme: {
       extend: {
         fontFamily: { sans: ['Outfit', 'system-ui', 'sans-serif'] },
@@ -48,10 +58,11 @@
 
 <style>
   html, body { background: #FAF7F2; font-family: 'Outfit', system-ui, sans-serif; }
+  html.dark, html.dark body { background: #1c1a17; }
   ::selection { background: #F6C4A9; }
 </style>
 </head>
-<body class="bg-cream text-stone-800 antialiased">
+<body class="bg-cream text-stone-800 antialiased dark:bg-[#1c1a17] dark:text-stone-200 transition-colors">
 <div id="root"></div>
 
 <script>
@@ -551,9 +562,9 @@ function timeAgo(ts) {
 }
 
 const TAG_COLORS = [
-  'bg-terracotta-100 text-terracotta-800',
-  'bg-sage-100 text-sage-800',
-  'bg-amber-100 text-amber-800',
+  'bg-terracotta-100 dark:bg-terracotta-900/40 text-terracotta-800 dark:text-terracotta-300',
+  'bg-sage-100 dark:bg-sage-900/40 text-sage-800 dark:text-sage-300',
+  'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300',
 ];
 
 function tagColor(tag) {
@@ -578,6 +589,8 @@ const Icon = {
   Search: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>,
   Mic: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" /></svg>,
   Dice: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="3" y="3" width="18" height="18" rx="4" /><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none" /><circle cx="16" cy="8" r="1.2" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="8" cy="16" r="1.2" fill="currentColor" stroke="none" /><circle cx="16" cy="16" r="1.2" fill="currentColor" stroke="none" /></svg>,
+  Sun: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="12" r="4" /><line x1="12" y1="1.5" x2="12" y2="4" /><line x1="12" y1="20" x2="12" y2="22.5" /><line x1="4.2" y1="4.2" x2="6" y2="6" /><line x1="18" y1="18" x2="19.8" y2="19.8" /><line x1="1.5" y1="12" x2="4" y2="12" /><line x1="20" y1="12" x2="22.5" y2="12" /><line x1="4.2" y1="19.8" x2="6" y2="18" /><line x1="18" y1="6" x2="19.8" y2="4.2" /></svg>,
+  Moon: (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" /></svg>,
 };
 
 // Days after which a recipe is considered fair game again for "Surprise me".
@@ -596,7 +609,25 @@ function App() {
   const [syncFileName, setSyncFileName] = useState(null);
   const [githubStatus, setGithubStatus] = useState(null); // { owner, repo, branch, path, error? } or null
   const [toast, setToast] = useState(null);
+  const [theme, setTheme] = useState(() => {
+    try {
+      const saved = localStorage.getItem('cookbook_theme');
+      if (saved) return saved;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch (e) {
+      return 'light';
+    }
+  });
   const importInputRef = useRef(null);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+    try { localStorage.setItem('cookbook_theme', theme); } catch (e) {}
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+  }, []);
 
   useEffect(() => {
     Storage.load().then(({ data, syncFileName, github }) => {
@@ -799,6 +830,8 @@ function App() {
         onDisconnectGithub={handleDisconnectGithub}
         onExport={handleExport}
         onImportClick={() => importInputRef.current && importInputRef.current.click()}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
       <input
         ref={importInputRef}
@@ -821,20 +854,20 @@ function App() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search recipes or ingredients..."
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white border border-stone-200 text-sm placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white dark:bg-stone-800 border border-stone-200 dark:border-stone-700 text-sm text-stone-800 dark:text-stone-100 placeholder-stone-400 dark:placeholder-stone-500 focus:outline-none focus:ring-2 focus:ring-terracotta-300"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={pickRandomRecipe}
                   title={`Suggests something you haven't cooked in the last ${RANDOM_PICK_COOLDOWN_DAYS} days`}
-                  className="inline-flex items-center gap-1.5 bg-white hover:bg-sage-50 text-sage-700 border border-sage-200 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
+                  className="inline-flex items-center gap-1.5 bg-white dark:bg-stone-800 hover:bg-sage-50 dark:hover:bg-stone-700 text-sage-700 dark:text-sage-400 border border-sage-200 dark:border-sage-800 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors"
                 >
                   <Icon.Dice className="w-4 h-4" /> Surprise me
                 </button>
                 <button
                   onClick={() => { setEditingRecipe(null); setShowForm(true); }}
-                  className="inline-flex items-center gap-1.5 bg-terracotta-500 hover:bg-terracotta-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-sm shadow-terracotta-200 transition-colors"
+                  className="inline-flex items-center gap-1.5 bg-terracotta-500 hover:bg-terracotta-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-sm shadow-terracotta-200 dark:shadow-none transition-colors"
                 >
                   <Icon.Plus className="w-4 h-4" /> Add recipe
                 </button>
@@ -845,7 +878,7 @@ function App() {
               <div className="flex flex-wrap gap-2 mb-6">
                 <button
                   onClick={() => setActiveTag(null)}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${!activeTag ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'}`}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${!activeTag ? 'bg-stone-800 text-white border-stone-800 dark:bg-stone-100 dark:text-stone-900 dark:border-stone-100' : 'bg-white dark:bg-stone-800 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-600'}`}
                 >
                   All
                 </button>
@@ -853,7 +886,7 @@ function App() {
                   <button
                     key={t}
                     onClick={() => setActiveTag(t === activeTag ? null : t)}
-                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${activeTag === t ? 'bg-stone-800 text-white border-stone-800' : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'}`}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${activeTag === t ? 'bg-stone-800 text-white border-stone-800 dark:bg-stone-100 dark:text-stone-900 dark:border-stone-100' : 'bg-white dark:bg-stone-800 text-stone-500 dark:text-stone-400 border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-600'}`}
                   >
                     {t}
                   </button>
@@ -880,7 +913,7 @@ function App() {
           </>
         )}
 
-        {view === 'stats' && <StatsView data={data} />}
+        {view === 'stats' && <StatsView data={data} theme={theme} />}
       </main>
 
       {showForm && (
@@ -921,44 +954,52 @@ function App() {
   );
 }
 
-function TopBar({ view, setView, syncFileName, fsSupported, onConnect, onDisconnect, githubStatus, onConnectGithub, onDisconnectGithub, onExport, onImportClick }) {
+function TopBar({ view, setView, syncFileName, fsSupported, onConnect, onDisconnect, githubStatus, onConnectGithub, onDisconnectGithub, onExport, onImportClick, theme, onToggleTheme }) {
   const [syncOpen, setSyncOpen] = useState(false);
   const connected = Boolean((githubStatus && !githubStatus.error) || syncFileName);
 
   return (
-    <header className="sticky top-0 z-30 bg-cream/90 backdrop-blur border-b border-stone-200">
+    <header className="sticky top-0 z-30 bg-cream/90 dark:bg-[#1c1a17]/90 backdrop-blur border-b border-stone-200 dark:border-stone-800">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-terracotta-500 text-white flex items-center justify-center">
             <Icon.Chef className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
           </div>
-          <span className="font-semibold text-stone-800 tracking-tight">Cookbook</span>
+          <span className="font-semibold text-stone-800 dark:text-stone-100 tracking-tight">Cookbook</span>
         </div>
 
-        <nav className="flex items-center gap-1 bg-stone-100 rounded-xl p-1">
+        <nav className="flex items-center gap-1 bg-stone-100 dark:bg-stone-800 rounded-xl p-1">
           <button
             onClick={() => setView('recipes')}
-            className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${view === 'recipes' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500'}`}
+            className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${view === 'recipes' ? 'bg-white dark:bg-stone-700 text-stone-800 dark:text-stone-100 shadow-sm' : 'text-stone-500 dark:text-stone-400'}`}
           >
             Recipes
           </button>
           <button
             onClick={() => setView('stats')}
-            className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${view === 'stats' ? 'bg-white text-stone-800 shadow-sm' : 'text-stone-500'}`}
+            className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${view === 'stats' ? 'bg-white dark:bg-stone-700 text-stone-800 dark:text-stone-100 shadow-sm' : 'text-stone-500 dark:text-stone-400'}`}
           >
             Stats
           </button>
         </nav>
 
+        <div className="flex items-center gap-2">
+        <button
+          onClick={onToggleTheme}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          className="w-9 h-9 rounded-lg flex items-center justify-center border border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-500 dark:text-stone-300 hover:text-terracotta-600 dark:hover:text-terracotta-400 transition-colors"
+        >
+          {theme === 'dark' ? <Icon.Sun className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} /> : <Icon.Moon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />}
+        </button>
         <div className="relative">
           <button
             onClick={() => setSyncOpen((s) => !s)}
             className={`w-9 h-9 rounded-lg flex items-center justify-center border transition-colors ${
               githubStatus && githubStatus.error
-                ? 'bg-amber-50 border-amber-200 text-amber-700'
+                ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300'
                 : connected
-                ? 'bg-sage-50 border-sage-200 text-sage-700'
-                : 'bg-white border-stone-200 text-stone-500'
+                ? 'bg-sage-50 dark:bg-sage-900/30 border-sage-200 dark:border-sage-800 text-sage-700 dark:text-sage-300'
+                : 'bg-white dark:bg-stone-800 border-stone-200 dark:border-stone-700 text-stone-500 dark:text-stone-300'
             }`}
             title="Sync & backup"
           >
@@ -967,23 +1008,23 @@ function TopBar({ view, setView, syncFileName, fsSupported, onConnect, onDisconn
           {syncOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setSyncOpen(false)} />
-              <div className="absolute right-0 mt-2 w-80 max-h-[80vh] overflow-y-auto bg-white rounded-xl border border-stone-200 shadow-lg z-20 p-3 text-sm">
-                <div className="text-stone-800 font-medium mb-2">Sync & backup</div>
+              <div className="absolute right-0 mt-2 w-80 max-h-[80vh] overflow-y-auto bg-white dark:bg-stone-800 rounded-xl border border-stone-200 dark:border-stone-700 shadow-lg z-20 p-3 text-sm">
+                <div className="text-stone-800 dark:text-stone-100 font-medium mb-2">Sync & backup</div>
 
                 {/* GitHub sync — works on any device, including phones */}
                 {githubStatus && !githubStatus.error ? (
-                  <div className="mb-3 pb-3 border-b border-stone-100">
-                    <div className="text-stone-500 text-xs mb-1">Auto-syncing via GitHub to</div>
-                    <div className="font-medium text-stone-700 text-xs mb-2">{githubStatus.owner}/{githubStatus.repo}</div>
+                  <div className="mb-3 pb-3 border-b border-stone-100 dark:border-stone-700">
+                    <div className="text-stone-500 dark:text-stone-400 text-xs mb-1">Auto-syncing via GitHub to</div>
+                    <div className="font-medium text-stone-700 dark:text-stone-200 text-xs mb-2">{githubStatus.owner}/{githubStatus.repo}</div>
                     <button onClick={() => { onDisconnectGithub(); }} className="text-xs text-red-500 hover:text-red-600">Disconnect GitHub sync</button>
                   </div>
                 ) : githubStatus && githubStatus.error ? (
-                  <div className="mb-3 pb-3 border-b border-stone-100">
-                    <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2.5 py-2 mb-2 leading-relaxed">{githubStatus.error}</p>
+                  <div className="mb-3 pb-3 border-b border-stone-100 dark:border-stone-700">
+                    <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/30 rounded-lg px-2.5 py-2 mb-2 leading-relaxed">{githubStatus.error}</p>
                     <button onClick={() => { onDisconnectGithub(); }} className="text-xs text-red-500 hover:text-red-600">Disconnect & try again</button>
                   </div>
                 ) : (
-                  <div className="mb-3 pb-3 border-b border-stone-100">
+                  <div className="mb-3 pb-3 border-b border-stone-100 dark:border-stone-700">
                     <GithubSyncForm onConnect={async (opts) => { await onConnectGithub(opts); setSyncOpen(false); }} />
                   </div>
                 )}
@@ -992,15 +1033,15 @@ function TopBar({ view, setView, syncFileName, fsSupported, onConnect, onDisconn
                 {fsSupported && (
                   syncFileName ? (
                     <div className="mb-3">
-                      <div className="text-stone-500 text-xs mb-2">Also auto-saving locally to <span className="font-medium text-stone-700">{syncFileName}</span></div>
+                      <div className="text-stone-500 dark:text-stone-400 text-xs mb-2">Also auto-saving locally to <span className="font-medium text-stone-700 dark:text-stone-200">{syncFileName}</span></div>
                       <button onClick={() => { onDisconnect(); setSyncOpen(false); }} className="text-xs text-red-500 hover:text-red-600">Disconnect file</button>
                     </div>
                   ) : (
                     <div className="mb-3">
-                      <p className="text-stone-500 text-xs mb-2 leading-relaxed">Or: pick a file inside a Dropbox/Drive/iCloud folder for this browser to auto-save to (desktop Chrome/Edge only).</p>
+                      <p className="text-stone-500 dark:text-stone-400 text-xs mb-2 leading-relaxed">Or: pick a file inside a Dropbox/Drive/iCloud folder for this browser to auto-save to (desktop Chrome/Edge only).</p>
                       <button
                         onClick={() => { onConnect(); setSyncOpen(false); }}
-                        className="text-xs font-medium border border-stone-200 hover:bg-stone-50 text-stone-600 px-3 py-1.5 rounded-lg"
+                        className="text-xs font-medium border border-stone-200 dark:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-700 text-stone-600 dark:text-stone-300 px-3 py-1.5 rounded-lg"
                       >
                         Connect a sync file
                       </button>
@@ -1008,17 +1049,18 @@ function TopBar({ view, setView, syncFileName, fsSupported, onConnect, onDisconn
                   )
                 )}
 
-                <div className="border-t border-stone-100 pt-2.5 flex gap-2">
-                  <button onClick={() => { onExport(); setSyncOpen(false); }} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium border border-stone-200 hover:bg-stone-50 px-3 py-1.5 rounded-lg text-stone-600">
+                <div className="border-t border-stone-100 dark:border-stone-700 pt-2.5 flex gap-2">
+                  <button onClick={() => { onExport(); setSyncOpen(false); }} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium border border-stone-200 dark:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-700 px-3 py-1.5 rounded-lg text-stone-600 dark:text-stone-300">
                     <Icon.Download className="w-3.5 h-3.5" /> Export
                   </button>
-                  <button onClick={() => { onImportClick(); setSyncOpen(false); }} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium border border-stone-200 hover:bg-stone-50 px-3 py-1.5 rounded-lg text-stone-600">
+                  <button onClick={() => { onImportClick(); setSyncOpen(false); }} className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-medium border border-stone-200 dark:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-700 px-3 py-1.5 rounded-lg text-stone-600 dark:text-stone-300">
                     <Icon.Upload className="w-3.5 h-3.5" /> Import
                   </button>
                 </div>
               </div>
             </>
           )}
+        </div>
         </div>
       </div>
     </header>
@@ -1052,9 +1094,9 @@ function GithubSyncForm({ onConnect }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <p className="text-stone-500 text-xs leading-relaxed mb-2">
+      <p className="text-stone-500 dark:text-stone-400 text-xs leading-relaxed mb-2">
         Syncs to a JSON file in a GitHub repo you own — works on any device with a browser, including your phone. Needs a{' '}
-        <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noreferrer" className="underline text-terracotta-600">personal access token</a>{' '}
+        <a href="https://github.com/settings/tokens?type=beta" target="_blank" rel="noreferrer" className="underline text-terracotta-600 dark:text-terracotta-400">personal access token</a>{' '}
         scoped to this repo with "Contents: Read and write" permission.
       </p>
       <div className="space-y-1.5">
@@ -1062,20 +1104,20 @@ function GithubSyncForm({ onConnect }) {
           value={repo}
           onChange={(e) => setRepo(e.target.value)}
           placeholder="owner/repo-name"
-          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-200 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:placeholder-stone-500 text-xs focus:outline-none focus:ring-2 focus:ring-terracotta-300"
         />
         <input
           type="password"
           value={token}
           onChange={(e) => setToken(e.target.value)}
           placeholder="Personal access token"
-          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-200 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:placeholder-stone-500 text-xs focus:outline-none focus:ring-2 focus:ring-terracotta-300"
         />
         <input
           value={branch}
           onChange={(e) => setBranch(e.target.value)}
           placeholder="Branch (default: main)"
-          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+          className="w-full px-2.5 py-1.5 rounded-lg border border-stone-200 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:placeholder-stone-500 text-xs focus:outline-none focus:ring-2 focus:ring-terracotta-300"
         />
       </div>
       {error && <p className="text-xs text-red-500 mt-1.5">{error}</p>}
@@ -1093,10 +1135,10 @@ function GithubSyncForm({ onConnect }) {
 function EmptyState({ hasRecipes, onAdd }) {
   return (
     <div className="text-center py-20">
-      <div className="w-14 h-14 mx-auto rounded-2xl bg-terracotta-50 text-terracotta-400 flex items-center justify-center mb-4">
+      <div className="w-14 h-14 mx-auto rounded-2xl bg-terracotta-50 dark:bg-terracotta-900/30 text-terracotta-400 flex items-center justify-center mb-4">
         <Icon.Chef className="w-6 h-6" />
       </div>
-      <p className="text-stone-500 text-sm mb-4">
+      <p className="text-stone-500 dark:text-stone-400 text-sm mb-4">
         {hasRecipes ? 'No recipes match your search.' : 'No recipes yet — add your first one.'}
       </p>
       {!hasRecipes && (
@@ -1110,12 +1152,12 @@ function EmptyState({ hasRecipes, onAdd }) {
 
 function RecipeCard({ recipe, cookCount, lastCooked, onOpen, onLogCooked }) {
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 hover:border-stone-300 hover:shadow-md transition-all overflow-hidden flex flex-col">
+    <div className="bg-white dark:bg-stone-800 rounded-2xl border border-stone-200 dark:border-stone-700 hover:border-stone-300 dark:hover:border-stone-600 hover:shadow-md transition-all overflow-hidden flex flex-col">
       <button onClick={onOpen} className="text-left flex-1 p-4">
         <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="font-semibold text-stone-800 leading-snug">{recipe.title}</h3>
+          <h3 className="font-semibold text-stone-800 dark:text-stone-100 leading-snug">{recipe.title}</h3>
           {cookCount > 0 && (
-            <span className="shrink-0 inline-flex items-center gap-1 text-xs font-medium bg-sage-50 text-sage-700 px-2 py-0.5 rounded-full">
+            <span className="shrink-0 inline-flex items-center gap-1 text-xs font-medium bg-sage-50 dark:bg-sage-900/30 text-sage-700 dark:text-sage-400 px-2 py-0.5 rounded-full">
               <Icon.Check className="w-3 h-3" /> {cookCount}
             </span>
           )}
@@ -1127,17 +1169,17 @@ function RecipeCard({ recipe, cookCount, lastCooked, onOpen, onLogCooked }) {
             ))}
           </div>
         )}
-        <div className="flex items-center gap-3 text-xs text-stone-400">
+        <div className="flex items-center gap-3 text-xs text-stone-400 dark:text-stone-500">
           {recipe.totalTime && (
             <span className="inline-flex items-center gap-1"><Icon.Clock className="w-3.5 h-3.5" /> {recipe.totalTime}</span>
           )}
           {lastCooked && <span>Last cooked {timeAgo(lastCooked)}</span>}
         </div>
       </button>
-      <div className="border-t border-stone-100 px-4 py-2.5">
+      <div className="border-t border-stone-100 dark:border-stone-700 px-4 py-2.5">
         <button
           onClick={onLogCooked}
-          className="w-full text-xs font-medium text-terracotta-600 hover:text-terracotta-700 inline-flex items-center justify-center gap-1.5 py-1"
+          className="w-full text-xs font-medium text-terracotta-600 dark:text-terracotta-400 hover:text-terracotta-700 dark:hover:text-terracotta-300 inline-flex items-center justify-center gap-1.5 py-1"
         >
           <Icon.Check className="w-3.5 h-3.5" /> Log cooked today
         </button>
@@ -1154,8 +1196,8 @@ function Modal({ onClose, children, wide }) {
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-40 flex items-start sm:items-center justify-center p-0 sm:p-4">
-      <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={onClose} />
-      <div className={`relative bg-white w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'} sm:rounded-2xl rounded-t-2xl shadow-xl max-h-[92vh] overflow-y-auto mt-auto sm:mt-0`}>
+      <div className="fixed inset-0 bg-stone-900/40 dark:bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className={`relative bg-white dark:bg-stone-800 dark:text-stone-100 w-full ${wide ? 'sm:max-w-2xl' : 'sm:max-w-lg'} sm:rounded-2xl rounded-t-2xl shadow-xl max-h-[92vh] overflow-y-auto mt-auto sm:mt-0`}>
         {children}
       </div>
     </div>
@@ -1263,75 +1305,75 @@ function RecipeFormModal({ recipe, onClose, onSave }) {
   return (
     <Modal onClose={onClose} wide>
       <form onSubmit={handleSubmit}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100 sticky top-0 bg-white rounded-t-2xl">
-          <h2 className="font-semibold text-stone-800">{recipe ? 'Edit recipe' : 'New recipe'}</h2>
-          <button type="button" onClick={onClose} className="text-stone-400 hover:text-stone-600">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100 dark:border-stone-700 sticky top-0 bg-white dark:bg-stone-800 rounded-t-2xl">
+          <h2 className="font-semibold text-stone-800 dark:text-stone-100">{recipe ? 'Edit recipe' : 'New recipe'}</h2>
+          <button type="button" onClick={onClose} className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">
             <Icon.X className="w-5 h-5" />
           </button>
         </div>
         <div className="p-5 space-y-4">
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium text-stone-500">Title</label>
+              <label className="block text-xs font-medium text-stone-500 dark:text-stone-400">Title</label>
               <VoiceButton onText={(t) => setTitle((prev) => (prev ? prev + ' ' : '') + t)} />
             </div>
             <input ref={titleRef} required value={title} onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
               placeholder="e.g. Weeknight Chicken Curry" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-stone-500 mb-1.5">Total time</label>
+              <label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">Total time</label>
               <input value={totalTime} onChange={(e) => setTotalTime(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+                className="w-full px-3 py-2.5 rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
                 placeholder="30 min" />
             </div>
             <div>
-              <label className="block text-xs font-medium text-stone-500 mb-1.5">Servings</label>
+              <label className="block text-xs font-medium text-stone-500 dark:text-stone-400 mb-1.5">Servings</label>
               <input value={servings} onChange={(e) => setServings(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+                className="w-full px-3 py-2.5 rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
                 placeholder="4" />
             </div>
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium text-stone-500">Tags <span className="text-stone-400 font-normal">(comma separated)</span></label>
+              <label className="block text-xs font-medium text-stone-500 dark:text-stone-400">Tags <span className="text-stone-400 dark:text-stone-500 font-normal">(comma separated)</span></label>
               <VoiceButton onText={(t) => setTags((prev) => (prev ? prev + ', ' : '') + t)} />
             </div>
             <input value={tags} onChange={(e) => setTags(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
               placeholder="dinner, quick, vegetarian" />
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium text-stone-500">Ingredients <span className="text-stone-400 font-normal">(one per line)</span></label>
+              <label className="block text-xs font-medium text-stone-500 dark:text-stone-400">Ingredients <span className="text-stone-400 dark:text-stone-500 font-normal">(one per line)</span></label>
               <VoiceButton continuous label="Voice input — pause between each ingredient" onText={(t) => setIngredients((prev) => (prev ? prev + '\n' : '') + t)} />
             </div>
             <textarea value={ingredients} onChange={(e) => setIngredients(e.target.value)} rows={5}
-              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300 font-mono"
+              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300 font-mono"
               placeholder={'2 chicken breasts\n1 onion, diced\n1 tbsp curry powder'} />
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium text-stone-500">Instructions <span className="text-stone-400 font-normal">(one step per line)</span></label>
+              <label className="block text-xs font-medium text-stone-500 dark:text-stone-400">Instructions <span className="text-stone-400 dark:text-stone-500 font-normal">(one step per line)</span></label>
               <VoiceButton continuous label="Voice input — pause between each step" onText={(t) => setInstructions((prev) => (prev ? prev + '\n' : '') + t)} />
             </div>
             <textarea value={instructions} onChange={(e) => setInstructions(e.target.value)} rows={6}
-              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
               placeholder={'Dice the onion and sauté until soft\nAdd chicken and cook through\nStir in curry powder and simmer 10 min'} />
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-medium text-stone-500">Notes</label>
+              <label className="block text-xs font-medium text-stone-500 dark:text-stone-400">Notes</label>
               <VoiceButton continuous onText={(t) => setNotes((prev) => (prev ? prev + ' ' : '') + t)} />
             </div>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+              className="w-full px-3 py-2.5 rounded-xl border border-stone-200 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 text-sm focus:outline-none focus:ring-2 focus:ring-terracotta-300"
               placeholder="Substitutions, tips, where this recipe came from..." />
           </div>
         </div>
-        <div className="px-5 py-4 border-t border-stone-100 flex justify-end gap-2 sticky bottom-0 bg-white rounded-b-2xl">
-          <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-medium text-stone-600 hover:bg-stone-50">Cancel</button>
+        <div className="px-5 py-4 border-t border-stone-100 dark:border-stone-700 flex justify-end gap-2 sticky bottom-0 bg-white dark:bg-stone-800 rounded-b-2xl">
+          <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl text-sm font-medium text-stone-600 dark:text-stone-300 hover:bg-stone-50 dark:hover:bg-stone-700">Cancel</button>
           <button type="submit" className="px-4 py-2.5 rounded-xl text-sm font-medium bg-terracotta-500 hover:bg-terracotta-600 text-white">
             {recipe ? 'Save changes' : 'Add recipe'}
           </button>
@@ -1349,16 +1391,16 @@ function RecipeDetailModal({ recipe, cookLogs, onClose, onEdit, onDelete, onLogC
 
   return (
     <Modal onClose={onClose} wide>
-      <div className="flex items-start justify-between px-5 py-4 border-b border-stone-100 sticky top-0 bg-white rounded-t-2xl">
+      <div className="flex items-start justify-between px-5 py-4 border-b border-stone-100 dark:border-stone-700 sticky top-0 bg-white dark:bg-stone-800 rounded-t-2xl">
         <div>
-          <h2 className="font-semibold text-stone-800 text-lg">{recipe.title}</h2>
-          <div className="flex items-center gap-3 text-xs text-stone-400 mt-1">
+          <h2 className="font-semibold text-stone-800 dark:text-stone-100 text-lg">{recipe.title}</h2>
+          <div className="flex items-center gap-3 text-xs text-stone-400 dark:text-stone-500 mt-1">
             {recipe.totalTime && <span className="inline-flex items-center gap-1"><Icon.Clock className="w-3.5 h-3.5" />{recipe.totalTime}</span>}
             {recipe.servings && <span>Serves {recipe.servings}</span>}
-            <span className="inline-flex items-center gap-1 text-sage-600"><Icon.Check className="w-3.5 h-3.5" />Cooked {cookLogs.length}x</span>
+            <span className="inline-flex items-center gap-1 text-sage-600 dark:text-sage-400"><Icon.Check className="w-3.5 h-3.5" />Cooked {cookLogs.length}x</span>
           </div>
         </div>
-        <button onClick={onClose} className="text-stone-400 hover:text-stone-600"><Icon.X className="w-5 h-5" /></button>
+        <button onClick={onClose} className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"><Icon.X className="w-5 h-5" /></button>
       </div>
 
       <div className="p-5 space-y-5">
@@ -1373,11 +1415,11 @@ function RecipeDetailModal({ recipe, cookLogs, onClose, onEdit, onDelete, onLogC
             <Icon.Check className="w-4 h-4" /> Log cooked today
           </button>
           <input type="date" value={customDate} onChange={(e) => setCustomDate(e.target.value)}
-            className="text-sm border border-stone-200 rounded-xl px-2.5 py-2" />
+            className="text-sm border border-stone-200 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 rounded-xl px-2.5 py-2" />
           <button
             disabled={!customDate}
             onClick={() => { onLogCooked(new Date(customDate).toISOString()); setCustomDate(''); }}
-            className="text-sm font-medium text-stone-600 border border-stone-200 hover:bg-stone-50 disabled:opacity-40 rounded-xl px-3 py-2"
+            className="text-sm font-medium text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-700 disabled:opacity-40 rounded-xl px-3 py-2"
           >
             Log this date
           </button>
@@ -1385,10 +1427,10 @@ function RecipeDetailModal({ recipe, cookLogs, onClose, onEdit, onDelete, onLogC
 
         {recipe.ingredients?.length > 0 && (
           <div>
-            <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Ingredients</h3>
+            <h3 className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-2">Ingredients</h3>
             <ul className="space-y-1.5">
               {recipe.ingredients.map((ing, i) => (
-                <li key={i} className="text-sm text-stone-700 flex gap-2"><span className="text-terracotta-400">•</span>{ing}</li>
+                <li key={i} className="text-sm text-stone-700 dark:text-stone-300 flex gap-2"><span className="text-terracotta-400">•</span>{ing}</li>
               ))}
             </ul>
           </div>
@@ -1396,11 +1438,11 @@ function RecipeDetailModal({ recipe, cookLogs, onClose, onEdit, onDelete, onLogC
 
         {recipe.instructions?.length > 0 && (
           <div>
-            <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Instructions</h3>
+            <h3 className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-2">Instructions</h3>
             <ol className="space-y-2">
               {recipe.instructions.map((step, i) => (
-                <li key={i} className="text-sm text-stone-700 flex gap-2.5">
-                  <span className="shrink-0 w-5 h-5 rounded-full bg-stone-100 text-stone-500 text-[11px] font-medium flex items-center justify-center mt-0.5">{i + 1}</span>
+                <li key={i} className="text-sm text-stone-700 dark:text-stone-300 flex gap-2.5">
+                  <span className="shrink-0 w-5 h-5 rounded-full bg-stone-100 dark:bg-stone-700 text-stone-500 dark:text-stone-300 text-[11px] font-medium flex items-center justify-center mt-0.5">{i + 1}</span>
                   <span>{step}</span>
                 </li>
               ))}
@@ -1410,17 +1452,17 @@ function RecipeDetailModal({ recipe, cookLogs, onClose, onEdit, onDelete, onLogC
 
         {recipe.notes && (
           <div>
-            <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Notes</h3>
-            <p className="text-sm text-stone-600 whitespace-pre-wrap">{recipe.notes}</p>
+            <h3 className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-2">Notes</h3>
+            <p className="text-sm text-stone-600 dark:text-stone-300 whitespace-pre-wrap">{recipe.notes}</p>
           </div>
         )}
 
         {cookLogs.length > 0 && (
           <div>
-            <h3 className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Cook history</h3>
+            <h3 className="text-xs font-semibold text-stone-500 dark:text-stone-400 uppercase tracking-wide mb-2">Cook history</h3>
             <ul className="space-y-1">
               {cookLogs.slice(0, 10).map((l) => (
-                <li key={l.id} className="text-sm text-stone-500 flex items-center justify-between py-0.5 gap-2">
+                <li key={l.id} className="text-sm text-stone-500 dark:text-stone-400 flex items-center justify-between py-0.5 gap-2">
                   {editingLogId === l.id ? (
                     <div className="flex items-center gap-2 w-full">
                       <input
@@ -1428,18 +1470,18 @@ function RecipeDetailModal({ recipe, cookLogs, onClose, onEdit, onDelete, onLogC
                         autoFocus
                         value={editDateValue}
                         onChange={(e) => setEditDateValue(e.target.value)}
-                        className="text-xs border border-stone-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-terracotta-300"
+                        className="text-xs border border-stone-200 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-terracotta-300"
                       />
                       <button
                         onClick={() => {
                           if (editDateValue) onEditLog(l.id, new Date(editDateValue).toISOString());
                           setEditingLogId(null);
                         }}
-                        className="text-xs font-medium text-terracotta-600 hover:text-terracotta-700"
+                        className="text-xs font-medium text-terracotta-600 dark:text-terracotta-400 hover:text-terracotta-700 dark:hover:text-terracotta-300"
                       >
                         Save
                       </button>
-                      <button onClick={() => setEditingLogId(null)} className="text-xs text-stone-400 hover:text-stone-600">
+                      <button onClick={() => setEditingLogId(null)} className="text-xs text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">
                         Cancel
                       </button>
                     </div>
@@ -1449,12 +1491,12 @@ function RecipeDetailModal({ recipe, cookLogs, onClose, onEdit, onDelete, onLogC
                       <span className="flex items-center gap-2.5">
                         <button
                           onClick={() => { setEditingLogId(l.id); setEditDateValue(toDateInputValue(new Date(l.date).getTime())); }}
-                          className="text-stone-300 hover:text-terracotta-600"
+                          className="text-stone-300 dark:text-stone-600 hover:text-terracotta-600 dark:hover:text-terracotta-400"
                           title="Edit date"
                         >
                           <Icon.Edit className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => onRemoveLog(l.id)} className="text-stone-300 hover:text-red-500" title="Delete">
+                        <button onClick={() => onRemoveLog(l.id)} className="text-stone-300 dark:text-stone-600 hover:text-red-500" title="Delete">
                           <Icon.X className="w-3.5 h-3.5" />
                         </button>
                       </span>
@@ -1467,19 +1509,19 @@ function RecipeDetailModal({ recipe, cookLogs, onClose, onEdit, onDelete, onLogC
         )}
       </div>
 
-      <div className="px-5 py-4 border-t border-stone-100 flex justify-between items-center sticky bottom-0 bg-white rounded-b-2xl">
+      <div className="px-5 py-4 border-t border-stone-100 dark:border-stone-700 flex justify-between items-center sticky bottom-0 bg-white dark:bg-stone-800 rounded-b-2xl">
         {confirmDelete ? (
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-stone-500">Delete this recipe?</span>
+            <span className="text-stone-500 dark:text-stone-400">Delete this recipe?</span>
             <button onClick={onDelete} className="text-red-600 font-medium hover:text-red-700">Yes, delete</button>
-            <button onClick={() => setConfirmDelete(false)} className="text-stone-400 hover:text-stone-600">Cancel</button>
+            <button onClick={() => setConfirmDelete(false)} className="text-stone-400 hover:text-stone-600 dark:hover:text-stone-200">Cancel</button>
           </div>
         ) : (
           <button onClick={() => setConfirmDelete(true)} className="inline-flex items-center gap-1.5 text-sm text-stone-400 hover:text-red-500">
             <Icon.Trash className="w-4 h-4" /> Delete
           </button>
         )}
-        <button onClick={onEdit} className="inline-flex items-center gap-1.5 text-sm font-medium text-stone-600 border border-stone-200 hover:bg-stone-50 px-3.5 py-2 rounded-xl">
+        <button onClick={onEdit} className="inline-flex items-center gap-1.5 text-sm font-medium text-stone-600 dark:text-stone-300 border border-stone-200 dark:border-stone-600 hover:bg-stone-50 dark:hover:bg-stone-700 px-3.5 py-2 rounded-xl">
           <Icon.Edit className="w-4 h-4" /> Edit
         </button>
       </div>
@@ -1489,7 +1531,11 @@ function RecipeDetailModal({ recipe, cookLogs, onClose, onEdit, onDelete, onLogC
 
 // ---------------- Stats ----------------
 
-function StatsView({ data }) {
+function StatsView({ data, theme }) {
+  const isDark = theme === 'dark';
+  const gridColor = isDark ? '#3a352f' : '#f0ede8';
+  const tickColor = isDark ? '#8a8378' : '#a8a29e';
+  const labelColor = isDark ? '#d6d3d1' : '#57534e';
   const topChartRef = useRef(null);
   const timelineChartRef = useRef(null);
   const topChartInstance = useRef(null);
@@ -1559,13 +1605,13 @@ function StatsView({ data }) {
         maintainAspectRatio: false,
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `Cooked ${ctx.raw} time${ctx.raw === 1 ? '' : 's'}` } } },
         scales: {
-          x: { beginAtZero: true, ticks: { precision: 0, color: '#a8a29e' }, grid: { color: '#f0ede8' } },
-          y: { ticks: { color: '#57534e', font: { size: 12 } }, grid: { display: false } },
+          x: { beginAtZero: true, ticks: { precision: 0, color: tickColor }, grid: { color: gridColor } },
+          y: { ticks: { color: labelColor, font: { size: 12 } }, grid: { display: false } },
         },
       },
     });
     return () => topChartInstance.current && topChartInstance.current.destroy();
-  }, [top10.map((r) => r.recipe.id + r.count).join(',')]);
+  }, [top10.map((r) => r.recipe.id + r.count).join(','), isDark]);
 
   useEffect(() => {
     if (timelineChartInstance.current) timelineChartInstance.current.destroy();
@@ -1586,13 +1632,13 @@ function StatsView({ data }) {
         maintainAspectRatio: false,
         plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `${ctx.raw} meal${ctx.raw === 1 ? '' : 's'} cooked` } } },
         scales: {
-          y: { beginAtZero: true, ticks: { precision: 0, color: '#a8a29e' }, grid: { color: '#f0ede8' } },
-          x: { ticks: { color: '#a8a29e' }, grid: { display: false } },
+          y: { beginAtZero: true, ticks: { precision: 0, color: tickColor }, grid: { color: gridColor } },
+          x: { ticks: { color: tickColor }, grid: { display: false } },
         },
       },
     });
     return () => timelineChartInstance.current && timelineChartInstance.current.destroy();
-  }, [monthly.map((m) => m.count).join(',')]);
+  }, [monthly.map((m) => m.count).join(','), isDark]);
 
   return (
     <div className="pb-10">
@@ -1602,17 +1648,17 @@ function StatsView({ data }) {
         <StatCard label="This month" value={thisMonthCount} />
       </div>
 
-      <div className="bg-white rounded-2xl border border-stone-200 p-5 mb-5">
-        <h3 className="text-sm font-semibold text-stone-700 mb-4">Meals cooked per month</h3>
+      <div className="bg-white dark:bg-stone-800 rounded-2xl border border-stone-200 dark:border-stone-700 p-5 mb-5">
+        <h3 className="text-sm font-semibold text-stone-700 dark:text-stone-200 mb-4">Meals cooked per month</h3>
         <div style={{ height: 220 }}>
           <canvas ref={timelineChartRef} />
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-stone-200 p-5 mb-5">
-        <h3 className="text-sm font-semibold text-stone-700 mb-4">Most cooked recipes</h3>
+      <div className="bg-white dark:bg-stone-800 rounded-2xl border border-stone-200 dark:border-stone-700 p-5 mb-5">
+        <h3 className="text-sm font-semibold text-stone-700 dark:text-stone-200 mb-4">Most cooked recipes</h3>
         {top10.length === 0 ? (
-          <p className="text-sm text-stone-400 py-6 text-center">Log a few meals to see your favorites here.</p>
+          <p className="text-sm text-stone-400 dark:text-stone-500 py-6 text-center">Log a few meals to see your favorites here.</p>
         ) : (
           <div style={{ height: Math.max(160, top10.length * 34) }}>
             <canvas ref={topChartRef} />
@@ -1620,15 +1666,15 @@ function StatsView({ data }) {
         )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-stone-200 p-5">
-        <h3 className="text-sm font-semibold text-stone-700 mb-3">All recipes</h3>
-        <div className="divide-y divide-stone-100">
+      <div className="bg-white dark:bg-stone-800 rounded-2xl border border-stone-200 dark:border-stone-700 p-5">
+        <h3 className="text-sm font-semibold text-stone-700 dark:text-stone-200 mb-3">All recipes</h3>
+        <div className="divide-y divide-stone-100 dark:divide-stone-700">
           {ranked.map(({ recipe, count, last }) => (
             <div key={recipe.id} className="flex items-center justify-between py-2.5 text-sm">
-              <span className="text-stone-700">{recipe.title}</span>
-              <span className="text-stone-400 flex items-center gap-3">
+              <span className="text-stone-700 dark:text-stone-300">{recipe.title}</span>
+              <span className="text-stone-400 dark:text-stone-500 flex items-center gap-3">
                 {last > 0 && <span className="text-xs">last {timeAgo(last)}</span>}
-                <span className="font-medium text-stone-600">{count}x</span>
+                <span className="font-medium text-stone-600 dark:text-stone-300">{count}x</span>
               </span>
             </div>
           ))}
@@ -1640,9 +1686,9 @@ function StatsView({ data }) {
 
 function StatCard({ label, value }) {
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 p-4 text-center">
-      <div className="text-2xl font-semibold text-stone-800">{value}</div>
-      <div className="text-xs text-stone-400 mt-0.5">{label}</div>
+    <div className="bg-white dark:bg-stone-800 rounded-2xl border border-stone-200 dark:border-stone-700 p-4 text-center">
+      <div className="text-2xl font-semibold text-stone-800 dark:text-stone-100">{value}</div>
+      <div className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">{label}</div>
     </div>
   );
 }
