@@ -455,6 +455,20 @@
       ],
       "notes": "",
       "createdAt": 1786239941212
+    },
+    {
+      "id": "acc64202-3734-499b-8255-50fc61ea9f11",
+      "title": "Butter Chicken",
+      "tags": [
+        "Chicken",
+        "Curry"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [],
+      "instructions": [],
+      "notes": "",
+      "createdAt": 1786310350887
     }
   ],
   "cookLogs": [
@@ -499,5 +513,5 @@
       "date": "2026-08-09T01:45:42.988Z"
     }
   ],
-  "updatedAt": 1786239942988
+  "updatedAt": 1786310350887
 }
