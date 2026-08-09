@@ -415,6 +415,46 @@
       ],
       "notes": "",
       "createdAt": 1786060361839
+    },
+    {
+      "id": "ac171cbf-a096-4c64-aafd-b6f499126418",
+      "title": "Veg Pulav",
+      "tags": [
+        "Veg",
+        "Pulav",
+        "Rice"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "Rice",
+        "Vegetables",
+        "Cilantro",
+        "Mint",
+        "lime/Lemon",
+        "kasthuri Methi",
+        "Green Chilli",
+        "Cardamom",
+        "Bay Leaf",
+        "cloves",
+        "Marathi Moggu",
+        "Ginger Garlic paste (GGP)",
+        "Masalas"
+      ],
+      "instructions": [
+        "Soak Rice",
+        "Add Oil Bay leaf, Marathi Moggu, cardamom and fry for 2min",
+        "Add sliced onion, veg, and cook",
+        "Add  chopped Cilantro, Mint, Green Chilli",
+        "Add GGP",
+        "Add tomato",
+        "Add kasthuri Methi",
+        "Add masalas and Cook the mixture; then add 1:2 Water and wait till it boils",
+        "Adjust salt add lemon juice and rice",
+        "Cover with Foil and boil Rice until Done"
+      ],
+      "notes": "",
+      "createdAt": 1786239941212
     }
   ],
   "cookLogs": [
@@ -454,5 +494,5 @@
       "date": "2026-08-07T00:37:33.162Z"
     }
   ],
-  "updatedAt": 1786063053172
+  "updatedAt": 1786239941212
 }
