@@ -469,6 +469,38 @@
       "instructions": [],
       "notes": "",
       "createdAt": 1786310350887
+    },
+    {
+      "id": "2bfa8fa4-9d8c-4d33-8641-e01b7cf37d28",
+      "title": "Mosaru Saar",
+      "tags": [
+        "Curd",
+        "stew"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "Onion",
+        "Garlic",
+        "Green Chilli",
+        "Coriander powder",
+        "Coriander leaf",
+        "Jeera Powder",
+        "Coconut",
+        "cumin",
+        "Mustard",
+        "curry leaf",
+        "Curd"
+      ],
+      "instructions": [
+        "Fry onion, garlic, green chilli in little oil",
+        "Then add 2 spoon coriander powder, 3/4 spoon cumin powder and shut off stove",
+        "Blend the above mix with corainder leaf and coconut.",
+        "Make a tempering of cumin, mustard, curry leaf then add the paste.",
+        "Add curd the adjust salt."
+      ],
+      "notes": "",
+      "createdAt": 1786410584099
     }
   ],
   "cookLogs": [
@@ -518,5 +550,5 @@
       "date": "2026-08-09T21:19:12.553Z"
     }
   ],
-  "updatedAt": 1786310352553
+  "updatedAt": 1786410584099
 }
