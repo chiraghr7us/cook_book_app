@@ -530,6 +530,40 @@
       ],
       "notes": "Use rice for lemon rice",
       "createdAt": 1786668065989
+    },
+    {
+      "id": "15e3ce2b-c05b-4837-beae-6bc21a8385de",
+      "title": "Masala khichdi",
+      "tags": [
+        "Rice",
+        "masala"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "leftover rice",
+        "tomato",
+        "capsicum",
+        "green chili",
+        "onion",
+        "Vegetables",
+        "chili powder",
+        "Turmeric powder",
+        "Coriander powder",
+        "Jeera",
+        "Ginger garlic paste"
+      ],
+      "instructions": [
+        "Cook rice,toor daal, mussoor daal for 3 whistles",
+        "Fry onion ,green chilies and jeera in oil",
+        "add capsicum and vegetables and cook",
+        "add ginger garlic paste and cook",
+        "add tomatoes and cook",
+        "Add masalas with little water",
+        "Add the cooked rice and daal"
+      ],
+      "notes": "Can add panner",
+      "createdAt": 1786671399280
     }
   ],
   "cookLogs": [
@@ -599,5 +633,5 @@
       "date": "2026-08-14T00:41:09.969Z"
     }
   ],
-  "updatedAt": 1786668069972
+  "updatedAt": 1786671399282
 }
