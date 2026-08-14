@@ -501,6 +501,35 @@
       ],
       "notes": "",
       "createdAt": 1786410584099
+    },
+    {
+      "id": "ed07ab86-6c97-4264-9723-53d7f70d080e",
+      "title": "Avalakki",
+      "tags": [
+        "Breakfast",
+        "rice",
+        "quick"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [
+        "onion",
+        "green chili",
+        "peanuts",
+        "mustard seeds",
+        "Curry leaves",
+        "turmeric",
+        "Lime",
+        "coriander leaf"
+      ],
+      "instructions": [
+        "fry mustard seeds peanuts and onion in oil untill translucent",
+        "soak avalakki for 4 to 5 minutes",
+        "add lime juice and avalakki to the tempering",
+        "garnish with coriander leaves"
+      ],
+      "notes": "Use rice for lemon rice",
+      "createdAt": 1786668065989
     }
   ],
   "cookLogs": [
@@ -565,5 +594,5 @@
       "date": "2026-08-11T00:00:00.000Z"
     }
   ],
-  "updatedAt": 1786596002501
+  "updatedAt": 1786668065990
 }
