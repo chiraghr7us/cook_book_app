@@ -564,6 +564,17 @@
       ],
       "notes": "Can add panner",
       "createdAt": 1786671399280
+    },
+    {
+      "id": "ad901f1f-5ced-41e8-815a-32301e5732f5",
+      "title": "Quesadilla",
+      "tags": [],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [],
+      "instructions": [],
+      "notes": "",
+      "createdAt": 1786756089783
     }
   ],
   "cookLogs": [
@@ -638,5 +649,5 @@
       "date": "2026-08-14T01:37:17.796Z"
     }
   ],
-  "updatedAt": 1786671437796
+  "updatedAt": 1786756089783
 }
