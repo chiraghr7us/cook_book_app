@@ -575,6 +575,20 @@
       "instructions": [],
       "notes": "",
       "createdAt": 1786756089783
+    },
+    {
+      "id": "b24a32fe-886c-4413-b653-84ac6e074b87",
+      "title": "Chickpea Curry",
+      "tags": [
+        "Chickpea",
+        "Curry"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [],
+      "instructions": [],
+      "notes": "",
+      "createdAt": 1787027543243
     }
   ],
   "cookLogs": [
@@ -659,5 +673,5 @@
       "date": "2026-08-17T02:34:39.526Z"
     }
   ],
-  "updatedAt": 1786934079527
+  "updatedAt": 1787027543243
 }
