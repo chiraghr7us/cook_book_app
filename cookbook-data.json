@@ -589,6 +589,21 @@
       "instructions": [],
       "notes": "",
       "createdAt": 1787027543243
+    },
+    {
+      "id": "98ff84cf-d9c0-44cd-93ea-351385e9193f",
+      "title": "Palak Panner",
+      "tags": [
+        "Spinach",
+        "Paneer",
+        "Curry"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [],
+      "instructions": [],
+      "notes": "",
+      "createdAt": 1787361688114
     }
   ],
   "cookLogs": [
@@ -688,5 +703,5 @@
       "date": "2026-08-22T01:20:59.111Z"
     }
   ],
-  "updatedAt": 1787361659112
+  "updatedAt": 1787361688114
 }
