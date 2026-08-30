@@ -604,6 +604,22 @@
       "instructions": [],
       "notes": "",
       "createdAt": 1787361688114
+    },
+    {
+      "id": "6c20bdcf-08cc-4e34-a26c-a974066975b4",
+      "title": "Palak Pappu",
+      "tags": [
+        "Spinach",
+        "Curry",
+        "Pappu",
+        "Lentil"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [],
+      "instructions": [],
+      "notes": "",
+      "createdAt": 1788055565440
     }
   ],
   "cookLogs": [
@@ -708,5 +724,5 @@
       "date": "2026-08-13T00:00:00.000Z"
     }
   ],
-  "updatedAt": 1787361750976
+  "updatedAt": 1788055565440
 }
