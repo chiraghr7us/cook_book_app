@@ -616,8 +616,20 @@
       ],
       "totalTime": "",
       "servings": "",
-      "ingredients": [],
-      "instructions": [],
+      "ingredients": [
+        "Toor daal",
+        "onion",
+        "tomato",
+        "spinach",
+        "garlic",
+        "green chili"
+      ],
+      "instructions": [
+        "Add daal, spinach,  chilli, garlic ,onion, tomato to cooker",
+        "Add salt, turmeric, chilli powder",
+        "Cook for 5 whistles",
+        "Add tempering and adjust salt"
+      ],
       "notes": "",
       "createdAt": 1788055565440
     }
@@ -724,5 +736,5 @@
       "date": "2026-08-13T00:00:00.000Z"
     }
   ],
-  "updatedAt": 1788055565440
+  "updatedAt": 1788056498718
 }
