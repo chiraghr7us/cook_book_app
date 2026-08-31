@@ -632,6 +632,20 @@
       ],
       "notes": "",
       "createdAt": 1788055565440
+    },
+    {
+      "id": "8f485853-955a-440f-a99b-49f18f1a1927",
+      "title": "Egg curry",
+      "tags": [
+        "Egg",
+        "curry"
+      ],
+      "totalTime": "",
+      "servings": "",
+      "ingredients": [],
+      "instructions": [],
+      "notes": "",
+      "createdAt": 1788157405809
     }
   ],
   "cookLogs": [
@@ -741,5 +755,5 @@
       "date": "2026-08-30T02:21:41.225Z"
     }
   ],
-  "updatedAt": 1788056501226
+  "updatedAt": 1788157405810
 }
